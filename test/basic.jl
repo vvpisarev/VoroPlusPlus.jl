@@ -144,7 +144,8 @@ end
     @info "Container volume" cvol
     @info "Voronoi volume" vvol
     @info "Difference" cvol - vvol
-    @test isapprox(vvol - cvol, 0; atol=1e-8)
+    @test isapprox(vvol, cvol; atol=1e-8)
+    @test isapprox(sum(volume, VoroPlusPlus.Unsafe(con)), cvol; atol=1e-8)
 
     # Output the particle positions in gnuplot format
     @test draw_particles(con, "random_points_p.gnu") === nothing

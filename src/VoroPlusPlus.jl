@@ -19,17 +19,17 @@ module VoroPlusPlus
 
     const VORO_JL_WRAPPER_PATH = @load_preference("VORO_JL_WRAPPER_PATH")
 
-    if VORO_JL_WRAPPER_PATH !== nothing
+    @static if VORO_JL_WRAPPER_PATH !== nothing
         @wrapmodule(() -> joinpath(VORO_JL_WRAPPER_PATH, "libvoro++wrap"))
-    end
 
-    include("config.jl")
-    include("container.jl")
-    include("cell.jl")
-    include("cell_iter.jl")
+        include("config.jl")
+        include("container.jl")
+        include("cell.jl")
+        include("cell_iter.jl")
 
-    function __init__()
-        VORO_JL_WRAPPER_PATH !== nothing && @initcxx
+        function __init__()
+            @initcxx
+        end
     end
 
 end # module VoroPlusPlus
