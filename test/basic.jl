@@ -24,7 +24,10 @@
     @info "" volume(v) 4/3 * pi / 8
     @test 0 < volume(v) - 4/3 * pi / 8 < 0.05
     # Output the Voronoi cell to a file, in the gnuplot format
-    @test draw_gnuplot(v, 0, 0, 0, "single_cell.gnu") === nothing
+    @test draw_gnuplot("single_cell.gnu", v) === nothing
+
+    @test vertex_positions(Matrix, v) == vertex_positions(Matrix{ComplexF64}, v)
+    @test vertex_positions(Vector, v) == vertex_positions(Vector{ComplexF64}, v)
 end
 
 @testset "Platonic Solids" begin
@@ -41,6 +44,13 @@ end
     add_plane!(v, -1, -1, 1)
     @info "Tetrahedron volume" volume(v)
     @test isapprox(volume(v), 9.0; atol=1e-8)
+    tet = mktemp() do _, io
+        draw_gnuplot(io, v)
+        seek(io, 0)
+        read(io, String)
+    end
+
+    @info "" tet
 
     # Create a cube. Since this is the default shape
     # we don't need to do any plane cutting.
@@ -195,7 +205,7 @@ end
 #     suc = true
 
 #     fmt = Format("%s lp=%d ls=%d l=%g u=%g up=%d\n")
-#     format(stdout, fmt, suc ? "True" : "False", lp, ls, l, u, get_up(v))
+#     format(stdout, fmt, suc ? "True" : "False", lp, ls, l, u, root_vertex(v))
 
 #     @test draw_gnuplot(v, 0, 0, 0, "single_cell3.gnu") === nothing
 # end

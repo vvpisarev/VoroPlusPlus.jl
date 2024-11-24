@@ -1,13 +1,15 @@
 module VoroPlusPlus
     using CxxWrap
     using Preferences
+    using Printf: Format, format
 
     export Container
     export add_point!, import!
     export draw_particles, draw_cells_gnuplot
     export VoronoiCell
-    export init!, get_up, add_plane!
-    export volume
+    export init!, add_plane!
+    export num_vertices, root_vertex, volume
+    export vertex_positions, vertex_positions!
     export init_l_shape!, check_relations, check_duplicates
     export draw_gnuplot
 
