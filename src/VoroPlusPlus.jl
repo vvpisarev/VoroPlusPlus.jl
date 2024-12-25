@@ -9,6 +9,12 @@ module VoroPlusPlus
     export draw_particles, draw_cells_gnuplot
     export draw_particles_pov
     export print_custom!, draw_cells_pov!
+    export find_voronoi_cell
+
+    #Functions for Container Iterator(c_loop_all) Class
+    export Container_Iterator
+    export start!, next!, pos
+    export compute_cell!
 
 
     # Functions for Container_Poly Class

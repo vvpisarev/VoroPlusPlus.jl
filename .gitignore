@@ -30,5 +30,7 @@ test/*.gnu
 test/*.txt
 test/*.pov
 test/*.points
+test/*.vec
+test/*.vol
 test/pack*.*
 test/pack*

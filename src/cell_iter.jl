@@ -1,5 +1,5 @@
 function Base.iterate(con::Container)
-    itr_state = ContainerIterator(con)
+    itr_state = Container_Iterator(con)
     !start!(itr_state) && return nothing
     cell = VoronoiCell(con)
     while !compute_cell!(cell, con, itr_state)
@@ -8,7 +8,7 @@ function Base.iterate(con::Container)
     return cell, itr_state
 end
 
-function Base.iterate(con::Container, itr_state::ContainerIterator)
+function Base.iterate(con::Container, itr_state::Container_Iterator)
     !next!(itr_state) && return nothing
     cell = VoronoiCell(con)
     while !compute_cell!(cell, con, itr_state)
@@ -23,7 +23,7 @@ end
 
 function Base.iterate(ucon::Unsafe{<:Container})
     con = ucon.container
-    itr_state = ContainerIterator(con)
+    itr_state = Container_Iterator(con)
     !start!(itr_state) && return nothing
     cell = VoronoiCell(con)
     while !compute_cell!(cell, con, itr_state)
