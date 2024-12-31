@@ -8,33 +8,33 @@ using BenchmarkTools
 # Container Dimension
 struct ContainerDim
     # minimum and maximum dimensions for each coordinate
-    x_min::Float64 
-    x_max::Float64
-    y_min::Float64
-    y_max::Float64
-    z_min::Float64
-    z_max::Float64
+    x_min::Real
+    x_max::Real
+    y_min::Real
+    y_max::Real
+    z_min::Real
+    z_max::Real
     # number of blocks for each dimension
-    n_x::Int32
-    n_y::Int32
-    n_z::Int32
+    n_x::Integer
+    n_y::Integer
+    n_z::Integer
 end
 
 # Particle Coordinates
 struct ParticleCoords
     # x, y, z coordinates for each particle
-    xp::Float64
-    yp::Float64
-    zp::Float64
+    xp::Real
+    yp::Real
+    zp::Real
     # particle id
-    idp::Int32
+    idp::Integer
 end
 
 # Voronoi Tesselation
 struct VoronoiTessellation
     domain::Vector{Container} #vector of containers
-    skin_distance::Float64
-    split_dim::Int32 #number of threads
+    skin_distance::Real
+    split_dim::Integer #number of threads
     split_bounds::Vector{ContainerDim} #vector of container dimensions
 end
 
@@ -50,7 +50,7 @@ end
 # Output: A ContainerDim vector of nthr elements
 # Each container represents a cube volume for particles, and only the x coordinate will change, y and z remains with the same size
 #
-function SetContainerCoords!(offset::Float64 = Float64(-1), size_xyz::Float64 = Float64(1), nblocks_xyz::Int32 = Int32(6), nthr::Int32 = Int32(1))
+#=function SetContainerCoords!(offset::Float64 = Float64(-1), size_xyz::Float64 = Float64(1), nblocks_xyz::Int32 = Int32(6), nthr::Int32 = Int32(1))
     
     coordinates = Vector{ContainerDim}(undef, nthr)
     x_c = offset
@@ -60,7 +60,37 @@ function SetContainerCoords!(offset::Float64 = Float64(-1), size_xyz::Float64 = 
     end
 
     return coordinates
+end=#
+
+
+##################################################################################
+
+function GenerateContainerDims(
+    x_min::Real,  # global bounds
+    x_max::Real,
+    y_min::Real,
+    y_max::Real,
+    z_min::Real,
+    z_max::Real,
+    d_skin::Real,
+    nblocks_xyz::Integer = Int32(6),
+    ntasks::Integer = 1,
+)
+    
+    coordinates = Vector{ContainerDim}(undef, ntasks)
+
+    x_range = range(Float64(x_min); stop=Float64(x_max), length=ntasks + 1)
+    for i in 1:ntasks
+        x_lo = i == 1 ? first(x_range) : x_range[i] - d_skin
+        x_hi = i == ntasks ? last(x_range) : x_range[i+1] + d_skin
+        coordinates[i] = ContainerDim(x_lo, x_hi, y_min, y_max, z_min, z_max, nblocks_xyz, nblocks_xyz, nblocks_xyz)
+    end
+
+    return coordinates
 end
+
+
+##################################################################################
 
 #
 # GenerateContainers!
@@ -71,19 +101,18 @@ end
 #
 # Output: A Container vector of nthr elements, each container is empty
 #
-function GenerateContainers!(v_coords::Vector{ContainerDim}, nthr)
+function GenerateContainers!(v_coords::Vector{ContainerDim})
 
-    containers = Vector{Container}(undef, nthr)
-
-    for i in 1:nthr
-        containers[i] = Container(
-        ;
-        bounds = (v_coords[i].x_min , v_coords[i].x_max, v_coords[i].y_min, v_coords[i].y_max, v_coords[i].z_min, v_coords[i].z_max),
-        nblocks = (v_coords[i].n_x, v_coords[i].n_y, v_coords[i].n_z),
-        periodic = (false, false, false),
-        particles_per_block = 8,
-        )
-    end
+    containers = [
+        Container(
+            ;
+            bounds = (con_dim.x_min , con_dim.x_max, con_dim.y_min, con_dim.y_max, con_dim.z_min, con_dim.z_max),
+            nblocks = (con_dim.n_x, con_dim.n_y, con_dim.n_z),
+            periodic = (false, false, false),
+            particles_per_block = 8,
+            )
+        for con_dim in v_coords
+    ]
 
     return containers
 end
@@ -99,15 +128,15 @@ end
 #
 # Output: A ParticleCoords vector of nthr elements
 #
-function GenerateParticles!(nparticles::Int32, offset::Float64, size_xyz::Float64, nthr::Int32)
+function GenerateParticles!(nparticles::Integer, x_min::Real, x_max::Real, y_min::Real, y_max::Real, z_min::Real, z_max::Real)
 
     particles = Vector{ParticleCoords}(undef, nparticles)
 
     for i in 1:nparticles
-        x = offset + rand() * (offset + size_xyz) * nthr
-        y = offset + rand() * (offset + size_xyz)
-        z = offset + rand() * (offset + size_xyz)
-        particles[i] = ParticleCoords(x, y, z, Int32(i-1))
+        x = x_min + rand() * (x_max - x_min)
+        y = y_min + rand() * (y_max - y_min)
+        z = z_min + rand() * (z_max - z_min)
+        particles[i] = ParticleCoords( x, y, z, i-1 )
     end
 
     return particles
@@ -127,39 +156,63 @@ end
 # Output: Files with particles and cells assigned to each container
 #
 
-function ComputeTessellation!(n_particles::Int32, offset::Float64, size_xyz::Float64, nblocks::Int32, skin_d::Float64)
+function ComputeTessellation!(
+    n_particles::Integer,  
+    x_min::Real, 
+    x_max::Real, 
+    y_min::Real, 
+    y_max::Real, 
+    z_min::Real, 
+    z_max::Real, 
+    d_skin::Real, 
+    nblocks::Integer
+    )
 
     # number of threads
     nthr = Threads.nthreads()
     # coordinates vector
-    con_coords = SetContainerCoords!(offset, size_xyz, nblocks, Int32(nthr))
+    con_coords = GenerateContainerDims(x_min, x_max, y_min, y_max, z_min, z_max, d_skin, nblocks, nthr)
     # containers vector
-    containers = GenerateContainers!( con_coords, nthr)
+    containers = GenerateContainers!( con_coords )
 
     # tessellation object
     tessellation = VoronoiTessellation(
         containers,
-        skin_d,
+        d_skin,
         nthr,
         con_coords
     )
 
     # particles vector
-    v_particles = GenerateParticles!( n_particles, offset, size_xyz, Int32(nthr) )
+    v_particles = GenerateParticles!( n_particles, x_min, x_max, y_min, y_max, z_min, z_max )
 
     # parallel execution
     Threads.@threads for _ in 1:Threads.nthreads()
 
-        # iteration through parcticle vector
+        # Iteration through parcticle vector
         # each thread checks particles from vector
         # if particle's x coordinte is inside container's dimension, assigned to each thread, add this particle to corresponding container
         for i in v_particles
-            if ( i.xp >= tessellation.split_bounds[Threads.threadid()].x_min ) && ( i.xp <= tessellation.split_bounds[Threads.threadid()].x_max )
+            if ( i.xp > tessellation.split_bounds[Threads.threadid()].x_min ) && ( i.xp < tessellation.split_bounds[Threads.threadid()].x_max )
                 add_point!(tessellation.domain[Threads.threadid()], i.idp, i.xp, i.yp, i.zp)
             end
         end
 
-        # after particle assigment, each thread calculates tesselation and generates files for particles and cells
+        # Simple Test for Volumes
+        cvol = (
+            (tessellation.split_bounds[Threads.threadid()].x_max - tessellation.split_bounds[Threads.threadid()].x_min)*
+            (tessellation.split_bounds[Threads.threadid()].y_max - tessellation.split_bounds[Threads.threadid()].y_min)*
+            (tessellation.split_bounds[Threads.threadid()].z_max - tessellation.split_bounds[Threads.threadid()].z_min)
+        )
+        vvol = sum(volume, tessellation.domain[Threads.threadid()])
+        message = "Container volume thread $(Threads.threadid()): $(cvol)\n"*
+                    "Voronoi volume thread $(Threads.threadid()): $(vvol)\n"*
+                    "Difference thread $(Threads.threadid()): $(cvol - vvol)\n"*
+                    "Is approx thread $(Threads.threadid())?: $(isapprox(vvol, cvol; atol=1e-8))\n" 
+        
+        println(message)
+
+        # After particle assigment, each thread calculates tesselation and generates files for particles and cells
         draw_particles(tessellation.domain[Threads.threadid()], "parallel/particles_$(Threads.threadid()).gnu")
         draw_cells_gnuplot(tessellation.domain[Threads.threadid()], "parallel/voro_cells_$(Threads.threadid()).gnu")
     
@@ -192,23 +245,6 @@ end =#
 #################################################################################
 
 
-# Tests
-
-#SetCoords!()
-#SetContainerCoords!(Float64(0), Float64(2), Float64(6), Int32(3))
-#GenerateContainers!( SetContainerCoords!(Float64(0), Float64(2), Int32(6), Int32(3)) , Int32(3))
-#GenerateParticles!( Int32(5), 0.0, 2.0, Int32(3) )
-
-
-#################################################################################
-
-
 # Final Version
 
-# Parameters: 
-# ComputeTessellation!(number of particles, dimension offset for each coordinate, size for each coordinate, number of block for each coordinate)
-
-ComputeTessellation!(Int32(80), 0.0, 2.0, Int32(6), 1.0)
-#@btime ComputeTessellation!(Int32(80), 0.0, 2.0, Int32(6), 1.0)
-#@benchmark ComputeTessellation!(Int32(80), 0.0, 2.0, Int32(6), 1.0)
-
+ComputeTessellation!(40, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.01, 6)
