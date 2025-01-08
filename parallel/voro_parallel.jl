@@ -20,52 +20,33 @@ struct ContainerDim
     n_z::Integer
 end
 
-# Particle Coordinates
-struct ParticleCoords
-    # x, y, z coordinates for each particle
-    xp::Real
-    yp::Real
-    zp::Real
-    # particle id
-    idp::Integer
-end
 
 # Voronoi Tesselation
 struct VoronoiTessellation
+    # minimum and maximum dimensions for each coordinate
+    x_min::Real
+    x_max::Real
+    y_min::Real
+    y_max::Real
+    z_min::Real
+    z_max::Real
     domain::Vector{Container} #vector of containers
     skin_distance::Real
     split_dim::Integer #number of threads
     split_bounds::Vector{ContainerDim} #vector of container dimensions
+    owner::Vector{Int32} # vector of "owning" domains for each particle
 end
 
 #
-# SetContainerCoords!
+# gen_container_dims
 #
 # Parameters:
-# offset: min point for each coordinate
-# size_xyz: size for each coordinate
-# nblocks_xyz: number of block division for each dimension
-# nthr: number of threads
 #
 # Output: A ContainerDim vector of nthr elements
 # Each container represents a cube volume for particles, and only the x coordinate will change, y and z remains with the same size
 #
-#=function SetContainerCoords!(offset::Float64 = Float64(-1), size_xyz::Float64 = Float64(1), nblocks_xyz::Int32 = Int32(6), nthr::Int32 = Int32(1))
-    
-    coordinates = Vector{ContainerDim}(undef, nthr)
-    x_c = offset
-    for i in 1:nthr
-        coordinates[i] = ContainerDim(x_c, x_c + size_xyz, offset, offset + size_xyz, offset, offset + size_xyz, nblocks_xyz, nblocks_xyz, nblocks_xyz)
-        x_c += size_xyz
-    end
 
-    return coordinates
-end=#
-
-
-##################################################################################
-
-function GenerateContainerDims(
+function gen_container_dims(
     x_min::Real,  # global bounds
     x_max::Real,
     y_min::Real,
@@ -121,22 +102,20 @@ end
 # GenerateParticles!
 #
 # Parameters:
-# n_particles: number of random particles
-# offset: min point for each coordinate, as containers
-# size_xyz: size for each coordinate, as cotainers
-# nthr: number of threads
 #
-# Output: A ParticleCoords vector of nthr elements
+# Output: A ParticleCoords array of nparticles*3 elements
 #
 function GenerateParticles!(nparticles::Integer, x_min::Real, x_max::Real, y_min::Real, y_max::Real, z_min::Real, z_max::Real)
 
-    particles = Vector{ParticleCoords}(undef, nparticles)
+    particles = Array{Real}([])
 
-    for i in 1:nparticles
+    for _ in 1:nparticles
         x = x_min + rand() * (x_max - x_min)
         y = y_min + rand() * (y_max - y_min)
         z = z_min + rand() * (z_max - z_min)
-        particles[i] = ParticleCoords( x, y, z, i-1 )
+        push!(particles, x)
+        push!(particles, y)
+        push!(particles, z)
     end
 
     return particles
@@ -144,58 +123,72 @@ function GenerateParticles!(nparticles::Integer, x_min::Real, x_max::Real, y_min
 end
 
 #
-# ComputeTessellation!
+# voronoi_tessellation
 #
-# Parameters:
-# n_particles: number of random particles, parameter for function GenerateParticles!
-# offset: min point for each coordinate, parameter for SetContainerCoords! and for GenerateParticles!
-# size_xyz: size for each coordinate, used for Cotainers and Particles
-# nblocks_xyz: number of block division for each dimension, parameter for SetContainerCoords!
-# skin_d: skin distance
-#
-# Output: Files with particles and cells assigned to each container
-#
+function voronoi_tessellation(con_dims, coords::AbstractArray{<:Real}, ids=1:div(length(coords), 3), ntasks::Integer=2)
 
-function ComputeTessellation!(
-    n_particles::Integer,  
-    x_min::Real, 
-    x_max::Real, 
-    y_min::Real, 
-    y_max::Real, 
-    z_min::Real, 
-    z_max::Real, 
-    d_skin::Real, 
-    nblocks::Integer
-    )
-
-    # number of threads
-    nthr = Threads.nthreads()
-    # coordinates vector
-    con_coords = GenerateContainerDims(x_min, x_max, y_min, y_max, z_min, z_max, d_skin, nblocks, nthr)
-    # containers vector
-    containers = GenerateContainers!( con_coords )
-
-    # tessellation object
+    #container dimensions
+    x_min, x_max, y_min, y_max, z_min, z_max = con_dims
+    
+    # container length in earch coordinate
+    lx, ly, lz = Float64.((x_max - x_min, y_max - y_min, z_max - z_min))
+    
+    # container volume
+    vol = lx * ly * lz
+    
+    # number of paticles
+    npts = length(ids)
+    
+    # ?_average
+    r_ave = cbrt(vol / npts)
+    d_skin = 5 * r_ave
+    
+    con_dims = gen_container_dims(x_min, x_max, y_min, y_max, z_min, z_max, d_skin, 6, ntasks)
+    containers = GenerateContainers!(con_dims)
+    owner = zeros(Int32, npts) # task that owns each particle
+    
     tessellation = VoronoiTessellation(
+        x_min, x_max, y_min, y_max, z_min, z_max,
         containers,
         d_skin,
-        nthr,
-        con_coords
+        1,
+        con_dims,
+        owner
     )
+    
+    # x dimension is there are more than one task
+    dx = lx / ntasks
+    
+    # particle
+    p = 0
 
-    # particles vector
-    v_particles = GenerateParticles!( n_particles, x_min, x_max, y_min, y_max, z_min, z_max )
+    # sort particles into bins
 
-    # parallel execution
-    Threads.@threads for _ in 1:Threads.nthreads()
-
-        # Iteration through parcticle vector
-        # each thread checks particles from vector
-        # if particle's x coordinte is inside container's dimension, assigned to each thread, add this particle to corresponding container
-        for i in v_particles
-            if ( i.xp > tessellation.split_bounds[Threads.threadid()].x_min ) && ( i.xp < tessellation.split_bounds[Threads.threadid()].x_max )
-                add_point!(tessellation.domain[Threads.threadid()], i.idp, i.xp, i.yp, i.zp)
-            end
+    #vector of vectors(number of task)
+    workload = [Int32[] for _ in 1:ntasks]
+    for ind in firstindex(coords):3:lastindex(coords)
+        p += 1
+        x, y, z = coords[ind], coords[ind+1], coords[ind+2]
+        i_con::Int32, x_rel = fldmod1(x - x_min, dx)
+        
+        owner[p] = i_con
+        if i_con > 1 && x_rel < d_skin
+            push!(workload[i_con-1], p)
+        elseif i_con < ntasks && dx - x_rel < d_skin
+            push!(workload[i_con+1], p)        
+        end
+        push!(workload[i_con], p)
+        
+    end
+    
+    
+    Threads.@threads for _ in 1:ntasks
+        work = workload[Threads.threadid()]
+        con = tessellation.domain[Threads.threadid()]
+        for i_part in work
+            ind = (i_part - 1) * 3
+            x, y, z = coords[ind+1], coords[ind+2], coords[ind+3]
+            add_point!(con, i_part, x, y, z)
         end
 
         # Simple Test for Volumes
@@ -213,38 +206,41 @@ function ComputeTessellation!(
         println(message)
 
         # After particle assigment, each thread calculates tesselation and generates files for particles and cells
+
         draw_particles(tessellation.domain[Threads.threadid()], "parallel/particles_$(Threads.threadid()).gnu")
         draw_cells_gnuplot(tessellation.domain[Threads.threadid()], "parallel/voro_cells_$(Threads.threadid()).gnu")
-    
+
     end
     
+    return tessellation
 end
 
-##################################################################################
-
-
-# Original Design
-
-#= struct VoronoiTessellation
-    domain::Vector{Container}
-    skin_distance::Float64
-    split_dim::Int8
-    split_bounds::Vector{Float64}
-end =#
-
-#= function ComputeTessellation!(
-    vt::VoronoiTessellation,
-    #coords::AbstractMatrix{<:Real}
-    coords::Vector{ContainerD}
+#
+#
+function TestVoroTesselation(
+    nparticles::Integer,
+    x_min::Real, 
+    x_max::Real, 
+    y_min::Real, 
+    y_max::Real, 
+    z_min::Real, 
+    z_max::Real, 
 )
-end =#
 
-#Base.iterate(vt::VoronoiTessellation)
+    # number of threads / tasks
+    ntasks = Threads.nthreads()
+    # particle's array
+    a_p = GenerateParticles!(nparticles, x_min, x_max, x_min, y_max, z_min, z_max)
+    a_p_range = 1:div(length(a_p), 3)
+   
+    t = voronoi_tessellation((x_min, x_max, y_min, y_max, z_min, z_max), a_p, a_p_range , ntasks)
+    println(typeof(t))
+
+end
 
 
-#################################################################################
+####################################################################################################
+
+TestVoroTesselation(1000, 0.0, 2.0, 0.0, 2.0, 0.0, 2.0)
 
 
-# Final Version
-
-ComputeTessellation!(40, 0.0, 8.0, 0.0, 2.0, 0.0, 2.0, 0.01, 6)
