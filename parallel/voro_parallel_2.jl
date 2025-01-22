@@ -40,7 +40,6 @@ end
 #
 function SetGeneralParameters(
     nparticles::Integer, 
-    d_skin::Real, 
     x_min::Real, 
     x_max::Real, 
     y_min::Real, 
@@ -52,7 +51,6 @@ function SetGeneralParameters(
 
     return Dict(
         "particles" => nparticles, 
-        "skin" => d_skin, 
         "x_min" => x_min,
         "x_max" => x_max,
         "y_min" => y_min,
@@ -176,8 +174,6 @@ function BaseTessellation(
     z_min, 
     z_max,
     npts,
-    con_dims,
-    containers,
     owner,
     ntasks)
     
@@ -191,12 +187,26 @@ function BaseTessellation(
     r_ave = cbrt(vol / npts)
     d_skin = 5 * r_ave
     
+    containerdimensions = GenerateContainerDims(
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        z_min,
+        z_max,
+        d_skin,
+        Int32(6),
+        Int32(ntasks)
+    )
+
+    containers = GenerateContainers!(containerdimensions)
+
     tessellation = VoronoiTessellation(
         x_min, x_max, y_min, y_max, z_min, z_max,
         containers,
         d_skin,
         ntasks,
-        con_dims,
+        containerdimensions,
         owner
     )
 
@@ -326,21 +336,7 @@ end
 ############################################################
 
 
-settings = SetGeneralParameters(500000, 0.5, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, Threads.nthreads())
-
-containerdimensions = GenerateContainerDims(
-    settings["x_min"],
-    settings["x_max"],
-    settings["y_min"],
-    settings["y_max"],
-    settings["z_min"],
-    settings["z_max"],
-    settings["skin"],
-    Int32(6),
-    Int32(settings["tasks"])
-)
-
-containers = GenerateContainers!(containerdimensions)
+settings = SetGeneralParameters(500000, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, Threads.nthreads())
 
 particles = GenerateParticles!(
     Int32(settings["particles"]),
@@ -366,8 +362,6 @@ tessellation = BaseTessellation(
     settings["z_min"], 
     settings["z_max"],
     npts,
-    containerdimensions,
-    containers,
     owner,
     settings["tasks"]
 )
