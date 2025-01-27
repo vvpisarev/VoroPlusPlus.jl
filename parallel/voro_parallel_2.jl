@@ -84,18 +84,25 @@ function GenerateContainerDims(
     z_min::Float64,
     z_max::Float64,
     d_skin::Float64, # d_skin size
-    nblocks_xyz::Int32 = Int32(6), # n_blocks, same for x, y and z
+    #nblocks_xyz::Int32 = Int32(6), # n_blocks, same for x, y and z
+    particles::Int32,
     ntasks::Int32 = Int32(1), # default number of tasks
 )
  
     # Container Dimensions vector (con_dims)
     con_dims = Vector{ContainerDim}(undef, ntasks)
 
+    volumePerCell = (x_max - x_min) * (y_max - y_min) * (z_max - z_min) * OPTIMAL_PARTICLES / particles
+    cellSize = cbrt(volumePerCell)
+    nx = ceil(Int32, (x_max - x_min) / cellSize)
+    ny = ceil(Int32, (y_max - y_min) / cellSize)
+    nz = ceil(Int32, (z_max - z_min) / cellSize)
+
     x_range = range(x_min; stop=x_max, length=ntasks + 1)
     for i in 1:ntasks
         x_lo = i == 1 ? first(x_range) : x_range[i] - d_skin
         x_hi = i == ntasks ? last(x_range) : x_range[i+1] + d_skin
-        con_dims[i] = ContainerDim(x_lo, x_hi, y_min, y_max, z_min, z_max, nblocks_xyz, nblocks_xyz, nblocks_xyz)
+        con_dims[i] = ContainerDim(x_lo, x_hi, y_min, y_max, z_min, z_max, nx, ny, nz)
     end
 
     return con_dims
@@ -120,7 +127,7 @@ function GenerateContainers!(v_coords::Vector{ContainerDim})
             bounds = (con_dim.x_min , con_dim.x_max, con_dim.y_min, con_dim.y_max, con_dim.z_min, con_dim.z_max),
             nblocks = (con_dim.n_x, con_dim.n_y, con_dim.n_z),
             periodic = (false, false, false),
-            particles_per_block = 8,
+            particles_per_block = ceil(Int32, OPTIMAL_PARTICLES),
             )
         for con_dim in v_coords
     ]
@@ -175,7 +182,9 @@ function BaseTessellation(
     z_max,
     npts,
     owner,
-    ntasks)
+    ntasks,
+    particles
+)
     
     # container length in each coordinate
     lx, ly, lz = Float64.((x_max - x_min, y_max - y_min, z_max - z_min))
@@ -195,7 +204,7 @@ function BaseTessellation(
         z_min,
         z_max,
         d_skin,
-        Int32(6),
+        particles,
         Int32(ntasks)
     )
 
@@ -336,7 +345,7 @@ end
 ############################################################
 
 
-settings = SetGeneralParameters(500000, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, Threads.nthreads())
+settings = SetGeneralParameters(1600000, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, Threads.nthreads())
 
 particles = GenerateParticles!(
     Int32(settings["particles"]),
@@ -360,12 +369,15 @@ tessellation = BaseTessellation(
     settings["y_min"], 
     settings["y_max"], 
     settings["z_min"], 
-    settings["z_max"],
-    npts,
-    owner,
-    settings["tasks"]
+    settings["z_max"], 
+    npts, 
+    owner, 
+    settings["tasks"],
+    Int32(settings["particles"])
 )
 
 @elapsed ComputeTessellation!(tessellation, particles)
+#te = @elapsed ComputeTessellation!(tessellation, particles)
+#println(te)
 
 #TestVolume(tessellation)

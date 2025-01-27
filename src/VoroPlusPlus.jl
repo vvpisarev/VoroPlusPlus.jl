@@ -3,6 +3,9 @@ module VoroPlusPlus
     using Preferences
     using Printf: Format, format
 
+    # Config Module
+    export OPTIMAL_PARTICLES
+
     # Functions for Container Class
     export Container
     export add_point!, import!
@@ -10,6 +13,7 @@ module VoroPlusPlus
     export draw_particles_pov
     export print_custom!, draw_cells_pov!
     export find_voronoi_cell
+    export compute_ghost_cell!
 
     #Functions for Container Iterator(c_loop_all) Class
     export Container_Iterator
@@ -39,7 +43,7 @@ module VoroPlusPlus
     export output_face_freq_table, output_face_orders
     export output_face_areas, output_normals
     export output_face_vertices
-    #export centroid
+    export centroid!
     export init_octahedron, plane_intersects
 
     #Functions for Containter Periodic Poly (conprdply) Class
