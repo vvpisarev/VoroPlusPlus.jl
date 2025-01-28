@@ -44,11 +44,12 @@
 
     #Output volume and centroid
     @info "Volume              : " volume(v)
-    #x::Float64 = 0.0
-    #y::Float64 = 0.0
-    #z::Float64 = 0.0
-    #centroid(v, x, y, z)
-	#@info "Centroid vector     : " (x, y, z)
+
+    x = Ref(0.0)
+	y = Ref(0.0)
+	z = Ref(0.0)
+    centroid!(v, x, y, z)
+	@info "Centroid vector     : " (x[], y[], z[])
 
 end
 

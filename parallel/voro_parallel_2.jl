@@ -9,25 +9,25 @@ using BenchmarkTools
 # Container Dimensions
 # Needed for Container constructor
 struct ContainerDim
-    x_min::Real # minimum and maximum dimensions for each coordinate for container
-    x_max::Real
-    y_min::Real
-    y_max::Real
-    z_min::Real
-    z_max::Real
-    n_x::Integer # number of blocks for each dimension
-    n_y::Integer
-    n_z::Integer
+    x_min::Float64 # minimum and maximum dimensions for each coordinate for container
+    x_max::Float64
+    y_min::Float64
+    y_max::Float64
+    z_min::Float64
+    z_max::Float64
+    n_x::Int32 # number of blocks for each dimension
+    n_y::Int32
+    n_z::Int32
 end
 
 # Voronoi Tesselation
 struct VoronoiTessellation
-    x_min::Real # minimum and maximum dimensions for each coordinate
-    x_max::Real
-    y_min::Real
-    y_max::Real
-    z_min::Real
-    z_max::Real
+    x_min::Float64 # minimum and maximum dimensions for each coordinate
+    x_max::Float64
+    y_min::Float64
+    y_max::Float64
+    z_min::Float64
+    z_max::Float64
     domain::Vector{Container} # vector of containers
     skin_distance::Float64 # overlapping distance between neighboring containers
     split_dim::Int32 # number of tasks
@@ -39,14 +39,14 @@ end
 # SetGeneralParameters!
 #
 function SetGeneralParameters(
-    nparticles::Integer, 
-    x_min::Real, 
-    x_max::Real, 
-    y_min::Real, 
-    y_max::Real, 
-    z_min::Real, 
-    z_max::Real, 
-    ntasks::Integer
+    nparticles::Int32, 
+    x_min::Float64, 
+    x_max::Float64, 
+    y_min::Float64, 
+    y_max::Float64, 
+    z_min::Float64, 
+    z_max::Float64, 
+    ntasks::Int32
 )
 
     return Dict(
@@ -231,7 +231,7 @@ end
 #
 # Output: Computed Tessellation
 #
-function ComputeTessellation!(tessellation::VoronoiTessellation, coords::AbstractArray{<:Real})
+function ComputeTessellation!(tessellation::VoronoiTessellation, coords::AbstractArray{<:Float64})
 
     # x dimension if there are more than one task
     dx = (tessellation.x_max - tessellation.x_min) / tessellation.split_dim
@@ -345,7 +345,7 @@ end
 ############################################################
 
 
-settings = SetGeneralParameters(1600000, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, Threads.nthreads())
+settings = SetGeneralParameters(Int32(500000), 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, Int32(Threads.nthreads()))
 
 particles = GenerateParticles!(
     Int32(settings["particles"]),
@@ -376,8 +376,8 @@ tessellation = BaseTessellation(
     Int32(settings["particles"])
 )
 
-@elapsed ComputeTessellation!(tessellation, particles)
-#te = @elapsed ComputeTessellation!(tessellation, particles)
-#println(te)
+#@elapsed ComputeTessellation!(tessellation, particles)
+te = @elapsed ComputeTessellation!(tessellation, particles)
+println(te)
 
 #TestVolume(tessellation)

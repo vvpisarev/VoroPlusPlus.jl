@@ -183,29 +183,31 @@ end
     @test VoroPlusPlus.draw_cells_gnuplot(con, "pack_ten_cube.gnu") === nothing
 end
 
-# @testset "Convex Test" begin
-#     v = VoronoiCell()
-#     @test v isa VoronoiCell
-
-#     @test init_l_shape!(v) === nothing
-
-#     @test draw_gnuplot(v, 0, 0, 0, "single_cell.gnu") === nothing
-#     lp = ls = -1
-#     l = u = 1e-20
-
-#     @test add_plane!(v, -1, 3, 0, 0.5)
-#     @test draw_gnuplot(v, 0, 0, 0, "single_cell2.gnu") === nothing
-#     @test add_plane!(v, -1, 3, 0.4, 0.53);
-#     @test add_plane!(v, -1, 3, -0.4, 0.54);
-#     print("cr")
-#     check_relations(v)
-#     check_duplicates(v)
-#     print("fi")
-
-#     suc = true
-
-#     fmt = Format("%s lp=%d ls=%d l=%g u=%g up=%d\n")
-#     format(stdout, fmt, suc ? "True" : "False", lp, ls, l, u, root_vertex(v))
-
-#     @test draw_gnuplot(v, 0, 0, 0, "single_cell3.gnu") === nothing
-# end
+@testset "Convex Test" begin
+    v = VoronoiCell()
+    @test v isa VoronoiCell
+    
+    @test init_l_shape!(v) === nothing
+    
+    @test draw_gnuplot(v, 0, 0, 0, "single_cell.gnu") === nothing
+    
+    lp = ls = -1
+    l = u = 1e-20
+    
+    @test add_plane!(v, -1, 3, 0, 0.5)
+    @test draw_gnuplot(v, 0, 0, 0, "single_cell2.gnu") === nothing
+    @test add_plane!(v, -1, 3, 0.4, 0.53);
+    @test add_plane!(v, -1, 3, -0.4, 0.54);
+    print("cr")
+    check_relations(v)
+    check_duplicates(v)
+    print("fi")
+    
+    suc = true
+    
+    fmt = Format("%s lp=%d ls=%d l=%g u=%g up=%d\n")
+    format(stdout, fmt, suc ? "True" : "False", lp, ls, l, u, root_vertex(v))
+    
+    @test draw_gnuplot(v, 0, 0, 0, "single_cell3.gnu") === nothing
+    
+end

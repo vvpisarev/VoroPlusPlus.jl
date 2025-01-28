@@ -301,6 +301,6 @@ end
 
 ############################################################
 
-
-TestVoroTesselation(40000, 0.0, 3.0, 0.0, 3.0, 0.0, 3.0)
-
+#TestVoroTesselation(50000, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0)
+@elapsed TestVoroTesselation(500000, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0)
+#@benchmark TestVoroTesselation(80000, 0.0, 3.0, 0.0, 3.0, 0.0, 3.0)
