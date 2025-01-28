@@ -67,6 +67,7 @@ module VoroPlusPlus
         include("cell.jl")
         include("cell_iter.jl")
         include("container_prd.jl")
+        include("parallel/voro_parallel.jl")
 
         function __init__()
             @initcxx
