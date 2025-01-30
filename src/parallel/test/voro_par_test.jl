@@ -122,7 +122,7 @@ function GenerateParticles!(
 end
 
 npts = isempty(ARGS) ? 500_000 : parse(Int, ARGS[1])
-ntasks = checkbounds(Bool, ARGS, 2) ? Threads.nthreads() : parse(Int, ARGS[2])
+ntasks = checkbounds(Bool, ARGS, 2) ? parse(Int, ARGS[2]) : Threads.nthreads()
 
 settings = SetGeneralParameters(npts, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, ntasks)
 
@@ -158,4 +158,4 @@ tessellation = VoroPlusPlus.parallel_container(con_dims, particles, Threads.nthr
 #     settings["tasks"]
 # )
 
-@info "nthreads = $(Threads.nthreads())" npoints ntasks size(tessellation.domain) @btime sum(volume, $tessellation; init=0.0)
+@info "nthreads = $(Threads.nthreads())" npts ntasks size(tessellation.domain) @btime sum(volume, $tessellation; init=0.0)

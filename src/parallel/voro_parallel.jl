@@ -162,7 +162,7 @@ function parallel_container(con_dims, coords::AbstractArray{<:Real}, ntasks::Int
 
     # ?_average
     r_ave = cbrt(vol / npts)
-    d_skin = 5 * r_ave
+    d_skin = 3 * r_ave
 
     containers = GenerateContainers(x_min, x_max, y_min, y_max, z_min, z_max, d_skin, npts, Int32(ntasks))
     owner = zeros(Int32, npts) # task that owns each particle
