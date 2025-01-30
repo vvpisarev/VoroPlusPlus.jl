@@ -107,16 +107,16 @@ function GenerateContainers(
     ilscale = cbrt(nparticles / (OPT_PART_PER_BLOCK * lx * ly * lz))
     containers = map(CartesianIndices((nnx, nny, nnz))) do ind
         ix, iy, iz = Tuple(ind)
-        x_lo = ix == 1 ? first(range_x) : range_x[ix] - d_skin
-        x_hi = ix + 1 > nnx ? last(range_x) : range_x[ix+1] + d_skin
+        x_lo = max(x_min, range_x[ix] - d_skin)
+        x_hi = min(x_max, range_x[ix+1] + d_skin)
         x_in_lo, x_in_hi = range_x[ix], range_x[ix+1]
 
-        y_lo = iy == 1 ? first(range_y) : range_y[iy] - d_skin
-        y_hi = iy + 1 > nny ? last(range_y) : range_y[iy+1] + d_skin
+        y_lo = max(y_min, range_y[iy] - d_skin)
+        y_hi = min(y_max, range_y[iy+1] + d_skin)
         y_in_lo, y_in_hi = range_y[iy], range_y[iy+1]
 
-        z_lo = iz == 1 ? first(range_z) : range_z[iz] - d_skin
-        z_hi = iz + 1 > nnz ? last(range_z) : range_z[iz+1] + d_skin
+        z_lo = max(z_min, range_z[iz] - d_skin)
+        z_hi = min(z_max, range_z[iz+1] + d_skin)
         z_in_lo, z_in_hi = range_z[iz], range_z[iz+1]
         nx, ny, nz = floor.(
             Int32,
@@ -189,17 +189,31 @@ function parallel_container(con_dims, coords::AbstractArray{<:Real}, ntasks::Int
         p += 1
         x, y, z = coords[ind], coords[ind+1], coords[ind+2]
         (ix::Int, xoff), (iy::Int, yoff), (iz::Int, zoff) =
-            fldmod1.((x, y, z) .- (x_min, y_min, z_min), (dx, dy, dz))
+            fldmod.((x, y, z) .- (x_min, y_min, z_min), (dx, dy, dz))
+        ix += one(ix)
+        iy += one(iy)
+        iz += one(iz)
         i_con = LinearIndices(workload)[ix, iy, iz]
         push!(workload[i_con], p)
         owner[p] = i_con
-        for dix in -1:1, diy in -1:1, diz in -1:1
-            jx, jy, jz = (ix, iy, iz) .+ (dix, diy, diz)
-            checkbounds(Bool, containers, jx, jy, jz) || continue
-            (jx, jy, jz) == (ix, iy, iz) && continue
-            xoff1, yoff1, zoff1 = (xoff, yoff, zoff) .+ (dix, diy, diz) .* d_skin
-            if xoff1 < 0 || xoff1 > dx || yoff1 < 0 || yoff1 > dy || zoff1 < 0 || zoff1 > dz
-                push!(workload[jx, jy, jz], p)
+        for dix in -1:1
+            jx = ix + dix
+            jx in axes(containers, 1) || continue
+            xoffj = xoff - dix * dx
+            -d_skin < xoffj <= dx + d_skin || continue
+            for diy in -1:1
+                jy = iy + diy
+                jy in axes(containers, 2) || continue
+                yoffj = yoff - diy * dy
+                -d_skin < yoffj <= dy + d_skin || continue
+                for diz in -1:1
+                    (dix, diy, diz) == (0, 0, 0) && continue
+                    jz = iz + diz
+                    jz in axes(containers, 3) || continue
+                    zoffj = zoff - diz * dz
+                    -d_skin < zoffj <= dz + d_skin || continue
+                    push!(workload[jx, jy, jz], p)
+                end
             end
         end
     end
