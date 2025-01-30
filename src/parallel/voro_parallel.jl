@@ -39,10 +39,31 @@ struct VoronoiTessellation{T<:ExtendedContainer}
     y_max::Float64
     z_min::Float64
     z_max::Float64
-    domain::Vector{T} #vector of containers
+    domain::Array{T, 3} #grid of subcontainers
     skin_distance::Float64
-    split_dim::Int32 #number of dimension in which box is split
     owner::Vector{Int32} # vector owner of each particle ID
+end
+
+function factorize(n::Integer)
+    primes = Int32.((2, 3, 5, 7, 11, 13, 17, 19, 23, 29))
+    @assert 1 <= n <= last(primes)^2
+    factors = Int32[]
+    for p in primes
+        p * p > n && break
+        while true
+            f, m = fldmod(n, p)
+            if m == 0
+                push!(factors, p)
+                n = f
+            else
+                break
+            end
+        end
+    end
+    if n > 1
+        push!(factors, n)
+    end
+    return factors
 end
 
 #
@@ -70,30 +91,33 @@ function GenerateContainers(
     ntasks::Int32 = Int32(1), # default number of tasks
 )
     lx, ly, lz = (x_max, y_max, z_max) .- (x_min, y_min, z_min)
-    split_dim = argmax((lx, ly, lz))
-    dist_range = range(
-        (x_min, y_min, z_min)[split_dim]
-        ;
-        stop=(x_max, y_max, z_max)[split_dim],
-        length=ntasks + 1
-    )
+    subdomain_size = [lx, ly, lz]
+    splits = Int32[1, 1, 1]
+    factors = factorize(ntasks)
+    while !isempty(factors)
+        p = pop!(factors)
+        split_dim = argmax(subdomain_size)
+        subdomain_size[split_dim] /= p
+        splits[split_dim] *= p
+    end
+    nnx, nny, nnz = splits
+    range_x = range(x_min; stop=x_max, length=nnx+1)
+    range_y = range(y_min; stop=y_max, length=nny+1)
+    range_z = range(z_min; stop=z_max, length=nnz+1)
     ilscale = cbrt(nparticles / (OPT_PART_PER_BLOCK * lx * ly * lz))
-    containers = map(1:ntasks) do i
-        x_lo, y_lo, z_lo = x_in_lo, y_in_lo, z_in_lo = x_min, y_min, z_min
-        x_hi, y_hi, z_hi = x_in_hi, y_in_hi, z_in_hi = x_max, y_max, z_max
-        if split_dim == 1
-            x_lo = i == 1 ? first(dist_range) : dist_range[i] - d_skin
-            x_hi = i + 1 > ntasks ? last(dist_range) : dist_range[i+1] + d_skin
-            x_in_lo, x_in_hi = dist_range[i], dist_range[i+1]
-        elseif split_dim == 2
-            y_lo = i == 1 ? first(dist_range) : dist_range[i] - d_skin
-            y_hi = i > ntasks ? last(dist_range) : dist_range[i+1] + d_skin
-            y_in_lo, y_in_hi = dist_range[i], dist_range[i+1]
-        elseif split_dim == 3
-            z_lo = i == 1 ? first(dist_range) : dist_range[i] - d_skin
-            z_hi = i > ntasks ? last(dist_range) : dist_range[i+1] + d_skin
-            z_in_lo, z_in_hi = dist_range[i], dist_range[i+1]
-        end
+    containers = map(CartesianIndices((nnx, nny, nnz))) do ind
+        ix, iy, iz = Tuple(ind)
+        x_lo = ix == 1 ? first(range_x) : range_x[ix] - d_skin
+        x_hi = ix + 1 > nnx ? last(range_x) : range_x[ix+1] + d_skin
+        x_in_lo, x_in_hi = range_x[ix], range_x[ix+1]
+
+        y_lo = iy == 1 ? first(range_y) : range_y[iy] - d_skin
+        y_hi = iy + 1 > nny ? last(range_y) : range_y[iy+1] + d_skin
+        y_in_lo, y_in_hi = range_y[iy], range_y[iy+1]
+
+        z_lo = iz == 1 ? first(range_z) : range_z[iz] - d_skin
+        z_hi = iz + 1 > nnz ? last(range_z) : range_z[iz+1] + d_skin
+        z_in_lo, z_in_hi = range_z[iz], range_z[iz+1]
         nx, ny, nz = floor.(
             Int32,
             (x_hi - x_lo, y_hi - y_lo, z_hi - z_lo) .* (ilscale + 1),
@@ -142,19 +166,16 @@ function parallel_container(con_dims, coords::AbstractArray{<:Real}, ntasks::Int
 
     containers = GenerateContainers(x_min, x_max, y_min, y_max, z_min, z_max, d_skin, npts, Int32(ntasks))
     owner = zeros(Int32, npts) # task that owns each particle
-    split_dim = Int32(argmax((lx, ly, lz)))
 
     tessellation = VoronoiTessellation(
         x_min, x_max, y_min, y_max, z_min, z_max,
         containers,
         d_skin,
-        split_dim,
         owner
     )
 
-    # x dimension is there are more than one task
-    dr = (lx, ly, lz)[split_dim] / ntasks
-    min_coord = (x_min, y_min, z_min)[split_dim]
+    nx, ny, nz = size(containers)
+    dx, dy, dz = (lx, ly, lz) ./ (nx, ny, nz)
 
     # particle
     p = 0
@@ -162,37 +183,37 @@ function parallel_container(con_dims, coords::AbstractArray{<:Real}, ntasks::Int
     # sort particles into bins
 
     #vector of vectors(number of task)
-    workload = [Int32[] for _ in 1:ntasks]
+    workload = [Int32[] for _ in CartesianIndices(containers)]
     #ghosts = [Int32[] for _ in 1:ntasks]
     for ind in firstindex(coords):3:lastindex(coords)
         p += 1
         x, y, z = coords[ind], coords[ind+1], coords[ind+2]
-        coord = (x, y, z)[split_dim]
-        i_con::Int32, offset = fldmod1(coord - min_coord, dr)
-        if i_con == 0
-            @info "" p coord
-        end
-
-        owner[p] = i_con
-        if i_con > 1 && offset < d_skin
-            #push!(ghosts[i_con-1], p)
-            push!(workload[i_con-1], p)
-        elseif i_con < ntasks && dr - offset < d_skin
-            #push!(ghosts[i_con+1], p)
-            push!(workload[i_con+1], p)
-        end
+        (ix::Int, xoff), (iy::Int, yoff), (iz::Int, zoff) =
+            fldmod1.((x, y, z) .- (x_min, y_min, z_min), (dx, dy, dz))
+        i_con = LinearIndices(workload)[ix, iy, iz]
         push!(workload[i_con], p)
-
+        owner[p] = i_con
+        for dix in -1:1, diy in -1:1, diz in -1:1
+            jx, jy, jz = (ix, iy, iz) .+ (dix, diy, diz)
+            checkbounds(Bool, containers, jx, jy, jz) || continue
+            (jx, jy, jz) == (ix, iy, iz) && continue
+            xoff1, yoff1, zoff1 = (xoff, yoff, zoff) .+ (dix, diy, diz) .* d_skin
+            if xoff1 < 0 || xoff1 > dx || yoff1 < 0 || yoff1 > dy || zoff1 < 0 || zoff1 > dz
+                push!(workload[jx, jy, jz], p)
+            end
+        end
     end
 
 
-    Threads.@threads for i_con in 1:ntasks
-        work = workload[i_con]
-        con = tessellation.domain[i_con].con
-        for i_part in work
-            ind = (i_part - 1) * 3
-            x, y, z = coords[ind+1], coords[ind+2], coords[ind+3]
-            add_point!(con, i_part, x, y, z)
+    @sync for i_con in 1:ntasks
+        @spawn let
+            work = workload[i_con]
+            con = tessellation.domain[i_con].con
+            for i_part in work
+                ind = (i_part - 1) * 3
+                x, y, z = coords[ind+1], coords[ind+2], coords[ind+3]
+                add_point!(con, i_part, x, y, z)
+            end
         end
 
         #=cell = VoronoiCell()
@@ -245,7 +266,7 @@ Apply function `fn` to each Voronoi cell in `vt`, and then reduce the result usi
 """
 function Base.mapreduce(fn, op, vt::VoronoiTessellation; init)
     locals = Channel{typeof(init)}(length(vt.domain))
-    @sync for con_id in eachindex(vt.domain)
+    @sync for con_id in LinearIndices(vt.domain)
         @spawn let
             val_local = init
             pid = Ref(Int32(0))
@@ -284,7 +305,7 @@ Sum the results of calling function `fn` on each cell in `vt`. The order of appl
 """
 function Base.sum(fn, vt::VoronoiTessellation; init)
     locals = Channel{typeof(init)}(length(vt.domain))
-    @sync for con_id in eachindex(vt.domain)
+    @sync for con_id in LinearIndices(vt.domain)
         @spawn let
             val_local = init
             pid = Ref(Int32(0))

@@ -121,7 +121,7 @@ function GenerateParticles!(
 
 end
 
-settings = SetGeneralParameters(500000, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, Threads.nthreads())
+settings = SetGeneralParameters(2500, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, Threads.nthreads())
 
 particles = GenerateParticles!(
     Int32(settings["particles"]),
@@ -148,7 +148,7 @@ con_dims = (
     settings["z_max"],
 )
 
-tessellation = VoroPlusPlus.parallel_container(con_dims, particles, 4)
+tessellation = VoroPlusPlus.parallel_container(con_dims, particles, Threads.nthreads())
 # tessellation = BaseTessellation(
 #     settings["x_min"],
 #     settings["x_max"],
@@ -161,4 +161,4 @@ tessellation = VoroPlusPlus.parallel_container(con_dims, particles, 4)
 #     settings["tasks"]
 # )
 
-#@btime sum(volume, $tessellation; init=0.0)
+@info "nthreads = $(Threads.nthreads())" size(tessellation.domain) @btime sum(volume, $tessellation; init=0.0)
