@@ -145,7 +145,7 @@ con_dims = (
     settings["z_max"],
 )
 
-tessellation = VoroPlusPlus.parallel_container(con_dims, particles, Threads.nthreads())
+tessellation = VoroPlusPlus.parallel_container(con_dims, particles, ntasks)
 # tessellation = BaseTessellation(
 #     settings["x_min"],
 #     settings["x_max"],
