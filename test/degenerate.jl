@@ -13,9 +13,9 @@
 	#for phi=0;phi<2*pi_-0.5*step;phi+=step
     for phi in 0:step:(2*pi_-0.5*step)
 
-		x=cos(theta)
-        y=cos(phi)*sin(theta)
-        z=sin(phi)*sin(theta)
+		x = cos(theta)
+        y = cos(phi)*sin(theta)
+        z = sin(phi)*sin(theta)
 		add_plane!(v, x, y, z, 1)
 		add_plane!(v, -x, y, z, 1)
 		add_plane!(v, y, x, z, 1)
@@ -26,7 +26,7 @@
 
 	@test check_relations(v) === nothing
 	@test check_duplicates(v) === nothing
-	@test draw_gnuplot(v, 0, 0, 0, "degenerate.gnu") === nothing
+	@test draw_gnuplot!(v, 0, 0, 0, "degenerate.gnu") === nothing
 	@test draw_pov(v, 0, 0, 0, "degenerate_v.pov") === nothing
 
 end
@@ -46,7 +46,7 @@ end
 
 	init!(v, -1, 1, -1, 1, -1, 1)
 
-	while n_<points 
+	while n_ < points 
 		
 		x = 2*rand()-1
 		y = 2*rand()-1
@@ -66,7 +66,7 @@ end
 		rsq = sqrt(x*x+y*y)
 		r = z/rsq
 
-		for phi in rand()*step:step:(2*pi_)
+		for phi in (rand()*step):step:(2*pi_)
 		# for(phi=rnd()*step;phi<2*pi;phi+=step)
 			add_plane!(v, x*cos(theta)+sin(theta)*(-y*cos(phi)/rsq-x*r*sin(phi)),
 				y*cos(theta)+sin(theta)*(x*cos(phi)/rsq-y*r*sin(phi)),
@@ -77,7 +77,7 @@ end
 
 	end
 
-	@test draw_gnuplot(v, 0, 0, 0, "degenerate2.gnu") === nothing
+	@test draw_gnuplot!(v, 0, 0, 0, "degenerate2.gnu") === nothing
 	@test draw_pov(v, 0,0,0,"degenerate2_v.pov") === nothing
 	@test draw_pov_mesh(v, 0,0,0,"degenerate2_m.pov") === nothing
 

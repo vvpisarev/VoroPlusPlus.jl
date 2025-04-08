@@ -3,6 +3,14 @@ module VoroPlusPlus
     using Preferences
     using Printf: Format, format
 
+    # Functions for Wall Class
+    export Wall
+    export point_inside
+
+    # Functios for Wall_List Class
+    export Wall_List
+    export add_wall
+
     # Functions for Container Class
     export Container
     export add_point!, import!
@@ -10,8 +18,16 @@ module VoroPlusPlus
     export draw_particles_pov
     export print_custom!, draw_cells_pov!
     export find_voronoi_cell
+    export clear, compute_all_cells
+    export sum_cell_volumes, point_inside!
+    export region_count
+    export initialize_search, frac_pos
+    export region_index, draw_domain_gnuplot
+    export draw_domain_pov, total_particles
+    export add_wall!
+    export point_inside_walls
 
-    #Functions for Container Iterator(c_loop_all) Class
+    # Functions for Container Iterator(c_loop_all) Class
     export Container_Iterator
     export start!, next!, pos
     export compute_cell!
@@ -27,28 +43,50 @@ module VoroPlusPlus
 
     # Functions for VoronoiCell Class
     export VoronoiCell
-    export init!, add_plane!
-    export num_vertices, root_vertex, volume
-    export vertex_positions, vertex_positions!
-    export init_l_shape!, check_relations, check_duplicates
-    export draw_gnuplot, draw_pov, draw_pov_mesh
-    export output_vertices, output_vertex_orders
-    export output_face_perimeters
-    export max_radius_squared, number_of_edges, total_edge_distance
+    export init!, init_l_shape!, add_plane!
+    export volume, check_relations, check_duplicates
+    export max_radius_squared, number_of_edges
+    export total_edge_distance
     export number_of_faces, surface_area
-    export output_face_freq_table, output_face_orders
-    export output_face_areas, output_normals
-    export output_face_vertices
-    #export centroid
+    export draw_gnuplot!, draw_pov, draw_pov_mesh
+    export num_vertices, root_vertex
     export init_octahedron, plane_intersects
+    export centroid!, nplane, init_tetrahedron
+    #Inherited from voronoicell_base
+    export init_base
+    export init_octahedron_base, init_tetrahedron_base
+    export translate, plane_intersects_guess
+    export construct_relations
+    export print_edges, cycle_up, cycle_down
+    #Implemented with get and set functions
+    export vertex_positions, vertex_positions!
+    # Implemented with extern C
+    export draw_gnuplot, output_vertices, output_vertex_orders
+    export output_face_perimeters, output_face_freq_table
+    export output_face_orders, output_face_areas
+    export output_normals, output_face_vertices
 
-    #Functions for Containter Periodic Poly (conprdply) Class
+
+    # Functions for VoronoiCell_Neighbor Class
+    export VoronoiCell_Neighbor
+    export init, init_octahedron, init_tetrahedron
+    export nplane_rsq, nplane, plane_rsq, plane
+    export check_facets, print_edges_neighbors
+
+
+    # Functions for Containter Periodic Poly (conprdply) Class
     export Container_Periodic_Poly
     export conprdply_add_point!
     export conprdply_compute_ghost_cell
     export conprdply_draw_particles
     export conprdply_draw_cells_gnuplot
     export conprdply_draw_domain_gnuplot
+
+
+    # Functions for Wall_Sphere Class
+    export Wall_Sphere
+    export point_inside_wph
+    export cut_cell_vc, cut_cell_vcn
 
 
     function set_wrapper_path(path::AbstractString="/usr/lib")

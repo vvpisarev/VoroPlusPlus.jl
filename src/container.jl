@@ -56,9 +56,9 @@ function Container_Poly(
 end
 
 Base.@propagate_inbounds function conp_add_point!(con::Container_Poly, id::Integer, pt)
-    @boundscheck if length(pt) != 3
-        throw(ArgumentError("Can only add 3-dimensional points to a VoroPlusPlus Container_Poly"))
+    @boundscheck if length(pt) != 4
+        throw(ArgumentError("Can only add 3-dimensional points and radius to a VoroPlusPlus Container_Poly"))
     end
-    x, y, z = pt
-    return conp_add_point!(con, Int32(id), Float64.((x, y, z))...)
+    x, y, z, r = pt
+    return conp_add_point!(con, Int32(id), Float64.((x, y, z, r))...)
 end

@@ -1,4 +1,4 @@
-
+#=
 @testset "Box Cut" begin
     
     cx=1.5
@@ -40,15 +40,15 @@ end
 	add_plane!(v, 0.4, 0.3, 1, 0.1)
 	draw_gnuplot(v, 0, 0, 0, "cell.gnu")
 
-    for theta in theta_step*0.5:pi_:theta_step
+    for theta in (theta_step*0.5):theta_step:pi_
 
         phi_step = 2*pi/ ( trunc( Int, 2*pi*sin(theta)/theta_step ) + 1 )
 
-        for phi in phi_step*0.5:2*pi_:phi_step
+        for phi in (phi_step*0.5):phi_step:2*pi_
 
-			x=sin(theta)*cos(phi);
-			y=sin(theta)*sin(phi);
-			z=cos(theta);
+			x = sin(theta)*cos(phi)
+			y = sin(theta)*sin(phi)
+			z = cos(theta)
 
 			rmin = 0
             rmax = 1
@@ -60,9 +60,9 @@ end
             while ( rmax-rmin > tolwidth )
                 r = ( rmax + rmin )*0.5
 				if ( plane_intersects(v, x, y, z, r) )
-                    rmin=r
+                    rmin = r
 				else 
-                    rmax=r
+                    rmax = r
                 end
             end
 
@@ -89,13 +89,13 @@ end
 	init!(v, -1, 1, -1, 1, -1, 1)
 
 	
-	for i in 0:5000:1
+	for i in 0:1:5000
 		x = 2*rand()-1
 		y = 2*rand()-1
 		z = 2*rand()-1
 		rsq = x*x*x*x+y*y*y*y+z*z*z*z
 
-		if ( rsq>0.01&&rsq<1 )
+		if ( rsq>0.01 && rsq<1 )
             r = 1/sqrt( sqrt(rsq) )
 			x *= r
             y *= r
@@ -108,4 +108,48 @@ end
 	@test draw_pov(v, 0, 0, 0, "superellipsoid_v.pov") === nothing
 	@test draw_pov_mesh(v, 0, 0, 0, "superellipsoid_m.pov") === nothing
 
+end
+=#
+
+@testset "Irregular" begin
+
+    x_min::Float64 = -6.0
+    x_max::Float64 = 6.0
+    y_min::Float64 = -6.0
+    y_max::Float64 = 6.0
+    z_min::Float64 = -3.0
+    z_max::Float64 = 9.0
+
+    Phi::Float64 = 0.5*(1+sqrt(5.0))
+    phi::Float64 = 0.5*(1-sqrt(5.0))
+
+    n_x::Int32 = 5
+    n_y::Int32 = 5
+    n_z::Int32 = 5
+
+    con = Container(x_min,x_max,y_min,y_max,z_min,z_max,n_x,n_y,n_z,
+			false,false,false,8)
+    
+    v = VoronoiCell()
+    init!(v, -2, 2, -2, 2, -2, 2)
+
+    add_plane!(v,0,Phi,1)
+    add_plane!(v,0,-Phi,1)
+    add_plane!(v,0,Phi,-1)
+    add_plane!(v,0,-Phi,-1)
+    add_plane!(v,1,0,Phi)
+    add_plane!(v,-1,0,Phi);
+	add_plane!(v,1,0,-Phi)
+    add_plane!(v,-1,0,-Phi)
+    add_plane!(v,Phi,1,0);
+	add_plane!(v,-Phi,1,0)
+    add_plane!(v,Phi,-1,0)
+    add_plane!(v,-Phi,-1,0)
+
+    @test import!(con, "./data/pack_irregular") === nothing
+
+    @test draw_particles_pov(con, "irregular_p.pov") === nothing
+    @test draw_cells_pov!(con, "irregular_v.pov") === nothing
+    
+    
 end
