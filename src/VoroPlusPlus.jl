@@ -26,20 +26,37 @@ module VoroPlusPlus
     export draw_domain_pov, total_particles
     export add_wall!
     export point_inside_walls
+    #Defined outside type Container, as an anonymus function
+    export compute_cell!, compute_ghost_cell!
+    export apply_walls!
 
     # Functions for Container Iterator(c_loop_all) Class
     export Container_Iterator
     export start!, next!, pos
-    export compute_cell!
+    export ci_x, ci_y, ci_z, ci_pid
 
+    # Functions for Container Iterator_Subset(c_loop_subset) Class
+    export Container_Iterator_Subset
+    export cis_start, cis_next, cis_pos
+    export ci_x, ci_y, ci_z, ci_pid
+    export cis_setup_sphere, cis_setup_box, cis_setup_intbox
+    export cis_x, cis_y, cis_z, cis_pid
 
+    # Functions for Particle_Order Class
+    export Particle_Order
+    export po_add
+
+    # Functions for Container Iterator_Order(c_loop_order) Class
+    export Container_Iterator_Order
+    export cio_start, cio_next, cio_pos
+    export cio_x, cio_y, cio_z, cio_pid
+    
     # Functions for Container_Poly Class
     export Container_Poly
     export conp_add_point!, conp_import!
     export conp_draw_particles, conp_draw_cells_gnuplot
     export conp_draw_particles_pov
     export conp_print_custom!, conp_draw_cells_pov!
-
 
     # Functions for VoronoiCell Class
     export VoronoiCell
@@ -66,13 +83,11 @@ module VoroPlusPlus
     export output_face_orders, output_face_areas
     export output_normals, output_face_vertices
 
-
     # Functions for VoronoiCell_Neighbor Class
     export VoronoiCell_Neighbor
     export init, init_octahedron, init_tetrahedron
     export nplane_rsq, nplane, plane_rsq, plane
     export check_facets, print_edges_neighbors
-
 
     # Functions for Containter Periodic Poly (conprdply) Class
     export Container_Periodic_Poly
@@ -81,7 +96,6 @@ module VoroPlusPlus
     export conprdply_draw_particles
     export conprdply_draw_cells_gnuplot
     export conprdply_draw_domain_gnuplot
-
 
     # Functions for Wall_Sphere Class
     export Wall_Sphere
