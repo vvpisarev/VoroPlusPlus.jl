@@ -3,6 +3,7 @@
 
 using Base.Threads
 using BenchmarkTools
+using Random
 
 using VoroPlusPlus
 #
@@ -12,7 +13,7 @@ using VoroPlusPlus
 #
 # Output: A ParticleCoords array of nparticles*3 elements
 #
-function GenerateParticles!(
+function GenerateParticles(
     nparticles::Integer, x_min::Real, x_max::Real, y_min::Real, y_max::Real, z_min::Real, z_max::Real
     ;
     rng = copy(Random.GLOBAL_RNG)
@@ -40,12 +41,17 @@ function TestVoroTesselation(
     y_max::Real,
     z_min::Real,
     z_max::Real,
+    imbalance::Real=2.0,
 )
 
     # number tasks
     ntasks = Threads.nthreads()
     # particle's array
-    a_p = GenerateParticles!(nparticles, x_min, x_max, x_min, y_max, z_min, z_max)
+    nleft = floor(Int, nparticles / (1 + imbalance))
+    nright = nparticles - nleft
+    a_left = GenerateParticles(nleft, x_min, 0.5 * (x_min + x_max), y_min, y_max, z_min, z_max)
+    a_right = GenerateParticles(nright, 0.5 * (x_min + x_max), x_max, y_min, y_max, z_min, z_max)
+    a_p = append!(a_left, a_right)
     a_p_range = 1:div(length(a_p), 3)
 
     tessellation = voronoi_tessellation((x_min, x_max, y_min, y_max, z_min, z_max), a_p, a_p_range , ntasks)
@@ -99,34 +105,35 @@ function SetGeneralParameters(
     )
 end
 
-function GenerateParticles!(
-    nparticles::Int32,
-    x_min::Float64,
-    x_max::Float64,
-    y_min::Float64,
-    y_max::Float64,
-    z_min::Float64,
-    z_max::Float64)
+function generate_uneven(
+    nparticles::Integer,
+    x_min::Real,
+    x_max::Real,
+    y_min::Real,
+    y_max::Real,
+    z_min::Real,
+    z_max::Real,
+    imbalance::Real=2.0,
+    ;
+    rng=copy(Random.GLOBAL_RNG)
+)
 
-    particles = Float64[]
-
-    for _ in 1:nparticles
-        x = x_min + rand() * (x_max - x_min)
-        y = y_min + rand() * (y_max - y_min)
-        z = z_min + rand() * (z_max - z_min)
-        push!(particles, x, y, z)
-    end
-
-    return particles
-
+    # particle's array
+    nleft = floor(Int, nparticles / (1 + imbalance))
+    nright = nparticles - nleft
+    a_left = GenerateParticles(nleft, x_min, 0.5 * (x_min + x_max), y_min, y_max, z_min, z_max; rng)
+    a_right = GenerateParticles(nright, 0.5 * (x_min + x_max), x_max, y_min, y_max, z_min, z_max; rng)
+    a_p = append!(a_left, a_right)
+    return a_p
 end
+
 
 npts = isempty(ARGS) ? 500_000 : parse(Int, ARGS[1])
 ntasks = checkbounds(Bool, ARGS, 2) ? parse(Int, ARGS[2]) : Threads.nthreads()
 
 settings = SetGeneralParameters(npts, 0.0, 10.0, 0.0, 10.0, 0.0, 10.0, ntasks)
 
-particles = GenerateParticles!(
+particles = generate_uneven(
     Int32(settings["particles"]),
     settings["x_min"],
     settings["x_max"],
