@@ -5,6 +5,20 @@ function VoronoiCell(xlo, xhi, ylo, yhi, zlo, zhi)
     return v
 end
 
+
+function __centroid(vc::VoronoiCell)
+   
+    ccall(
+        (:get_centroid, "libvoro++wrap"),
+        NTuple{3,Float64},
+        (Ptr{Cvoid},),
+        vc.cpp_object,
+    )
+
+end
+
+#############################
+
 function __vertex_ordering(vc::VoronoiCell)
     nu = reinterpret(Ptr{Int32}, __get_nu(vc))
     len = __get_current_vertices(vc)

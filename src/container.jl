@@ -34,6 +34,34 @@ Base.@propagate_inbounds function add_point!(con::Container, id::Integer, pt)
     return add_point!(con, Int32(id), Float64.((x, y, z))...)
 end
 
+#############################################################################
+
+function __get_particle_pos(cl::Container_Iterator)
+   
+    ccall(
+        (:get_pos, "libvoro++wrap"),
+        Particle_Info,
+        (Ptr{Cvoid},),
+        cl.cpp_object,
+    )
+
+end
+
+function __find_voro_cell(cn::Container, coord = (0.0, 0.0, 0.0))
+
+    _x, _y, _z = coord
+    dx, dy, dz = Float64.((_x, _y, _z))
+   
+    ccall(
+        (:find_voro_cell, "libvoro++wrap"),
+        Fnd_Voro_Cell,
+        (Ptr{Cvoid}, Cdouble, Cdouble, Cdouble),
+        cn.cpp_object, dx, dy, dz,
+    )
+
+end
+
+###########################################################################
 
 
 ###########   Container_Poly

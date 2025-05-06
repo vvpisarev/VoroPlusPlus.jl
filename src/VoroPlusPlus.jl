@@ -102,6 +102,50 @@ module VoroPlusPlus
     export point_inside_wph
     export cut_cell_vc, cut_cell_vcn
 
+    # Testing Centroid
+    mutable struct Centroid
+
+        x::Float64
+        y::Float64
+        z::Float64
+    end
+
+    export Centroid
+    export __centroid
+
+    ###################
+
+    # Testing Particle_Info
+    mutable struct Particle_Info
+
+        pid::Int32
+        x::Float64
+        y::Float64
+        z::Float64
+        r::Float64
+    end
+
+    export Particle_Info
+    export __get_particle_pos
+
+    ###################
+
+    # Testing Fnd_Voro_Cell for function find_voronoi_cell
+
+    mutable struct Fnd_Voro_Cell
+        
+        found::Bool
+        rx::Float64
+        ry::Float64
+        rz::Float64
+        pid::Int32
+    end
+
+    export Fnd_Voro_Cell
+    export __find_voro_cell
+
+
+    ####################################################3
 
     function set_wrapper_path(path::AbstractString="/usr/lib")
         # Set it in our runtime values, as well as saving it to disk
