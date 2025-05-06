@@ -19,9 +19,9 @@ foreach(rm, filter(endswith(".vol"), readdir()))
 #include("extra.jl")
 
 # Need to check
-include("interface.jl")
+#include("interface.jl")
 #include("no_release.jl")
 
 # Under Testing
 #include("centroid.jl")
-#include("particle_info.jl")
+include("particle_info.jl")

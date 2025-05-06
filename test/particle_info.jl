@@ -4,11 +4,6 @@
     hcube = h*h*h
     particles = 20
 
-	#rx = Ref(0.0)
-	#ry = Ref(0.0)
-	#rz = Ref(0.0)
-	#pid = Ref(Int32(0))
-
 	con =  Container(0,1,0,1,0,1,5,5,5,false,false,false,8)
 
 	#for i in 0:1:particles
@@ -51,10 +46,6 @@
 			par1 = __find_voro_cell( con, (x, y, 0.5) )
 			if (par1.found)
                 write(f1, "$(x) $(y) $(0.5) $(par1.rx-x) $(par1.ry-y) $(par1.rz-0.5) $(sqrt( (par1.rx-x)*(par1.rx-x)+(par1.ry-y)*(par1.ry-y)+(par1.rz-0.5)*(par1.rz-0.5) ))\n")
-			#if (find_voronoi_cell(con, x, y, 0.5, par1.x, par1.y, par1.z, par1.pid))
-            #    write(f1, "$(x) $(y) $(0.5) $(par1.x-x) $(par1.y-y) $(par1.z-0.5) $(sqrt( (par1.x-x)*(par1.x-x)+(par1.y-y)*(par1.y-y)+(par1.z-0.5)*(par1.z-0.5) ))\n")
-            #if (find_voronoi_cell(con, x, y, 0.5, rx, ry, rz, pid))
-            #    write(f1, "$(x) $(y) $(0.5) $(rx[]-x) $(ry[]-y) $(rz[]-0.5) $(sqrt( (rx[]-x)*(rx[]-x)+(ry[]-y)*(ry[]-y)+(rz[]-0.5)*(rz[]-0.5) ))\n")
             #else
                 #fprintf(stderr,"# find_voronoi_cell error for %g %g 0.5\n",x,y)
             end
@@ -71,15 +62,6 @@
 				par1 = __find_voro_cell( con, ( x, y, z ) )
 				if ( par1.found )
 					samp_v[par1.pid+1] += 1 
-				#if ( find_voronoi_cell(con, x, y, z, par1.x, par1.y, par1.z, par1.pid) )
-				#	samp_v[par1.pid+1] += 1 
-				#if ( find_voronoi_cell(con, x, y, z, rx, ry, rz, pid) )
-				#	samp_v[pid[]+1] += 1 
-					#if pid[] < 20
-						#tmp = samp_v[pid[]+1]
-						#tmp =+ 1
-						#samp_v[pid[]+1] = tmp
-					#end
 				#else 
 					#fprintf(stderr,"# find_voronoi_cell error for %g %g %g\n",x,y,z);
 				end
@@ -92,30 +74,17 @@
 	cla = Container_Iterator(con)
 	c = VoronoiCell()
 
-	#x = Ref(0.0)
-	#y = Ref(0.0)
-	#z = Ref(0.0)
-	#r = Ref(0.0)
-
     par = Particle_Info(0, 0.0, 0.0, 0.0, 0.0)
 
 	if ( start!(cla) )
-		if ( compute_cell!(c, con, cla) )
-			#pos(cla, pid, x, y, z, r);
-            par = __get_particle_pos(cla)
-			#write(f1,"$(pid[]) $(x[]) $(y[]) $(z[]) $(volume(c)) $(samp_v[pid[]+1]*hcube)\n")
-            write(f1,"$(par.pid) $(par.x) $(par.y) $(par.z) $(volume(c)) $(samp_v[par.pid+1]*hcube)\n")
-            #draw_gnuplot("find_voro_cell_v.gnu", c, (x[], y[], z[]))
-			draw_gnuplot("find_voro_cell_v.gnu", c, (par.x, par.y, par.z))
-		end
-		while ( next!(cla) )
+		while true
 			if ( compute_cell!(c, con, cla) )
-				#pos(cla, pid, x, y, z, r);
                 par = __get_particle_pos(cla)
-                #write(f1,"$(pid[]) $(x[]) $(y[]) $(z[]) $(volume(c)) $(samp_v[pid[]+1]*hcube)\n")
                 write(f1,"$(par.pid) $(par.x) $(par.y) $(par.z) $(volume(c)) $(samp_v[par.pid+1]*hcube)\n")
-                #draw_gnuplot("find_voro_cell_v.gnu", c, (x[], y[], z[]))
                 draw_gnuplot("find_voro_cell_v.gnu", c, (par.x, par.y, par.z))
+				if ( !next!(cla) )
+					break
+				end
 			end
 		end
 	end
