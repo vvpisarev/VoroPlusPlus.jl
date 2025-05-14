@@ -39,13 +39,14 @@
 
     f1 = open("find_voro_cell.vec","w")
 
-	par1 = Fnd_Voro_Cell(false, 0.0, 0.0, 0.0, Int32(0))
+	#par1 = Fnd_Voro_Cell(false, 0.0, 0.0, 0.0, Int32(0))
 
     for x in 0.5*h:h:1 
         for y in 0.5*h:h:1
-			par1 = __find_voro_cell( con, (x, y, 0.5) )
-			if (par1.found)
-                write(f1, "$(x) $(y) $(0.5) $(par1.rx-x) $(par1.ry-y) $(par1.rz-0.5) $(sqrt( (par1.rx-x)*(par1.rx-x)+(par1.ry-y)*(par1.ry-y)+(par1.rz-0.5)*(par1.rz-0.5) ))\n")
+			#par1 = __find_voro_cell( con, (x, y, 0.5) )
+			found, rx, ry, rz, pid = find_voro_cell( con, x, y, 0.5 )
+			if Bool( found )
+                write(f1, "$(x) $(y) $(0.5) $(rx-x) $(ry-y) $(rz-0.5) $(sqrt( (rx-x)*(rx-x)+(ry-y)*(ry-y)+(rz-0.5)*(rz-0.5) ))\n")
             #else
                 #fprintf(stderr,"# find_voronoi_cell error for %g %g 0.5\n",x,y)
             end
@@ -59,9 +60,10 @@
 	for z in 0.5*h:h:1
 		for y in 0.5*h:h:1 
 			for x in 0.5*h:h:1
-				par1 = __find_voro_cell( con, ( x, y, z ) )
-				if ( par1.found )
-					samp_v[par1.pid+1] += 1 
+				#par1 = __find_voro_cell( con, ( x, y, z ) )
+				found, rx, ry, rz, pid = find_voro_cell( con, x, y, z )
+				if Bool( found )
+					samp_v[pid+1] += 1 
 				#else 
 					#fprintf(stderr,"# find_voronoi_cell error for %g %g %g\n",x,y,z);
 				end
@@ -74,14 +76,12 @@
 	cla = Container_Iterator(con)
 	c = VoronoiCell()
 
-    par = Particle_Info(0, 0.0, 0.0, 0.0, 0.0)
-
 	if ( start!(cla) )
 		while true
 			if ( compute_cell!(c, con, cla) )
-                par = __get_particle_pos(cla)
-                write(f1,"$(par.pid) $(par.x) $(par.y) $(par.z) $(volume(c)) $(samp_v[par.pid+1]*hcube)\n")
-                draw_gnuplot("find_voro_cell_v.gnu", c, (par.x, par.y, par.z))
+                pid, x, y, z = get_pos(cla)
+                write(f1,"$(pid) $(x) $(y) $(z) $(volume(c)) $(samp_v[pid+1]*hcube)\n")
+                draw_gnuplot("find_voro_cell_v.gnu", c, (x, y, z))
 				if ( !next!(cla) )
 					break
 				end

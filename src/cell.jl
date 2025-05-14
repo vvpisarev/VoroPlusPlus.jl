@@ -6,17 +6,6 @@ function VoronoiCell(xlo, xhi, ylo, yhi, zlo, zhi)
 end
 
 
-function __centroid(vc::VoronoiCell)
-   
-    ccall(
-        (:get_centroid, "libvoro++wrap"),
-        NTuple{3,Float64},
-        (Ptr{Cvoid},),
-        vc.cpp_object,
-    )
-
-end
-
 #############################
 
 function __vertex_ordering(vc::VoronoiCell)

@@ -22,6 +22,6 @@ foreach(rm, filter(endswith(".vol"), readdir()))
 #include("interface.jl")
 #include("no_release.jl")
 
-# Under Testing
-#include("centroid.jl")
+# Under Testing refactoring
+include("centroid.jl")
 include("particle_info.jl")

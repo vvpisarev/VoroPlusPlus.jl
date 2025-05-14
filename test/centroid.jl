@@ -15,8 +15,8 @@
     centroid!(v, x, y, z)
 	@info "Centroid vector with Ref     : " (x[], y[], z[])
 
-    c = Centroid(0.0, 0.0, 0.0)
-    @test __centroid(v) === (x[], y[], z[])
-    @info "Centroid vector with extern C : " (c.x, c.y, c.z)
+    cx, cy, cz = get_centroid(v)
+    @test (cx, cy, cz) === (x[], y[], z[])
+    @info "Centroid vector with refactor : " (cx, cy, cz)
     
 end
