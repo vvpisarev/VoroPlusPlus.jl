@@ -1,4 +1,5 @@
 module VoroPlusPlus
+    using Base: @propagate_inbounds
     using CxxWrap
     using Preferences
     using Printf: Format, format
@@ -120,13 +121,14 @@ module VoroPlusPlus
     const VORO_JL_WRAPPER_PATH = @load_preference("VORO_JL_WRAPPER_PATH")
 
     @static if VORO_JL_WRAPPER_PATH !== nothing
+        include("abstract_types.jl")
         @wrapmodule(() -> joinpath(VORO_JL_WRAPPER_PATH, "libvoro++wrap"))
 
         include("config.jl")
         include("container.jl")
-        include("cell.jl")
-        include("cell_iter.jl")
-        include("container_prd.jl")
+        #include("cell.jl")
+        #include("cell_iter.jl")
+        #include("container_prd.jl")
 
         function __init__()
             @initcxx
