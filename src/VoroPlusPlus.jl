@@ -12,8 +12,15 @@ module VoroPlusPlus
     export Wall_List
     export add_wall
 
+    # ordering
+
     # Functions for Container Class
+    export AbstractContainer
     export Container
+    export container, polydisperse_container
+
+    export bounds
+    export periodic
     export add_point!, import!
     export draw_particles, draw_cells_gnuplot
     export draw_particles_pov
@@ -43,15 +50,11 @@ module VoroPlusPlus
     export cis_setup_sphere, cis_setup_box, cis_setup_intbox
     export cis_x, cis_y, cis_z, cis_pid
 
-    # Functions for Particle_Order Class
-    export Particle_Order
-    export po_add
-
     # Functions for Container Iterator_Order(c_loop_order) Class
     export Container_Iterator_Order
     export cio_start, cio_next, cio_pos
     export cio_x, cio_y, cio_z, cio_pid
-    
+
     # Functions for Container_Poly Class
     export Container_Poly
     export conp_add_point!, conp_import!
@@ -103,7 +106,7 @@ module VoroPlusPlus
     export point_inside_wph
     export cut_cell_vc, cut_cell_vcn
 
-   
+
     # Refactoring for Ref substitution
     export get_centroid
     export get_pos
