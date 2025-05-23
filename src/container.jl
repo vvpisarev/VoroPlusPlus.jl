@@ -1,7 +1,7 @@
 struct UnspecifiedOrder<:ContainerIterationOrder end
 
 mutable struct Container{C<:AbstractRawContainer, O<:ContainerIterationOrder}<:AbstractContainer
-    con::C
+    const con::C
     ord::O
 end
 
@@ -102,7 +102,7 @@ function __add_point!(
     y::Float64,
     z::Float64
 )
-    __cxxwrap_add_point!(con, id, x, y, z)
+    __cxxwrap_put!(con, id, x, y, z)
     return con
 end
 
@@ -114,7 +114,7 @@ function __add_point!(
     y::Float64,
     z::Float64
 )
-    __cxxwrap_add_point!(con, ord, id, x, y, z)
+    __cxxwrap_put!(con, ord, id, x, y, z)
     return con
 end
 
@@ -127,7 +127,7 @@ function __add_point!(
     z::Float64,
     r::Float64,
 )
-    __cxxwrap_add_point!(con, id, x, y, z, r)
+    __cxxwrap_put!(con, id, x, y, z, r)
     return con
 end
 
@@ -140,7 +140,7 @@ function __add_point!(
     z::Float64,
     r::Float64,
 )
-    __cxxwrap_add_point!(con, ord, id, x, y, z, r)
+    __cxxwrap_put!(con, ord, id, x, y, z, r)
     return con
 end
 
@@ -173,22 +173,28 @@ end
 end
 
 """
-    bounds(con::AbstractContainer)
+    bounding_box(con::AbstractContainer)
 
 Return tuple `((xmin, ymin, zmin), (xmax, ymax, zmax))`.
 """
-function bounds(con::AbstractContainer)
+function bounding_box(con::AbstractContainer)
     xlo, ylo, zlo, xhi, yhi, zhi = __cxxwrap_bounds(__raw(con))
     return (xlo, ylo, zlo), (xhi, yhi, zhi)
 end
 
 """
-    clear!(con::AbstractContainer)
+    empty!(con::AbstractContainer)
 
 Delete all data in container and return the container.
 """
-function Base.empty!(con::AbstractContainer)
+function Base.empty!(con::AbstractRawContainer)
+    __cxxwrap_clear!(con)
+    return con
+end
+
+function Base.empty!(con::Container{C,O}) where {C,O}
     __cxxwrap_clear!(__raw(con))
+    con.ord = O()
     return con
 end
 

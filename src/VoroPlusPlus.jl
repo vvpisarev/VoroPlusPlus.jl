@@ -3,6 +3,7 @@ module VoroPlusPlus
     using CxxWrap
     using Preferences
     using Printf: Format, format
+    using StaticArrays
 
     # Functions for Wall Class
     export Wall
@@ -19,7 +20,7 @@ module VoroPlusPlus
     export Container
     export container, polydisperse_container
 
-    export bounds
+    export bounding_box
     export periodic
     export add_point!, import!
     export draw_particles, draw_cells_gnuplot
@@ -128,8 +129,9 @@ module VoroPlusPlus
         @wrapmodule(() -> joinpath(VORO_JL_WRAPPER_PATH, "libvoro++wrap"))
 
         include("config.jl")
+        include("particle_info.jl")
         include("container.jl")
-        #include("cell.jl")
+        include("cell.jl")
         #include("cell_iter.jl")
         #include("container_prd.jl")
 

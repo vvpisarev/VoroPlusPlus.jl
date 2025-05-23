@@ -1,5 +1,5 @@
 @testset "Single Cell" begin
-    v = VoronoiCell()
+    vc = voronoicell_box()
 
     # Initialize the Voronoi cell to be a cube of side length 2, centered
     # on the origin

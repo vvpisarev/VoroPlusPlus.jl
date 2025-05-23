@@ -13,7 +13,7 @@ foreach(rm, filter(endswith(".points"), readdir()))
 foreach(rm, filter(endswith(".vec"), readdir()))
 foreach(rm, filter(endswith(".vol"), readdir()))
 #Implemented
-#include("basic.jl")
+include("basic.jl")
 #include("custom.jl")
 #include("degenerate.jl")
 #include("extra.jl")
@@ -23,5 +23,5 @@ foreach(rm, filter(endswith(".vol"), readdir()))
 #include("no_release.jl")
 
 # Under Testing refactoring
-include("centroid.jl")
-include("particle_info.jl")
+#include("centroid.jl")
+#include("particle_info.jl")
