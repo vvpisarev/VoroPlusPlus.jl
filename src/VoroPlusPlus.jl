@@ -64,7 +64,7 @@ module VoroPlusPlus
 
     # Functions for VoronoiCell Class
     export VoronoiCell
-    export init!, init_l_shape!, add_plane!
+    export voronoicell_box, voronoicell_tetrahedron, voronoicell_octahedron
     export volume, check_relations, check_duplicates
     export max_radius_squared, number_of_edges
     export total_edge_distance
