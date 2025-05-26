@@ -7,6 +7,27 @@ A wrapper for the `voronoicell_neighbor` class representing Voronoi cells with n
 VoronoiCell
 
 """
+    VoronoiCell(max_r_sq)
+
+Create a new Voronoi cell with `max_r_sq` as maximum squared radius.
+"""
+VoronoiCell(::Float64)
+
+"""
+    VoronoiCell(con::AbstractRawContainer)
+
+Create a new Voronoi cell based on the size of `con`.
+"""
+VoronoiCell(::AbstractRawContainer)
+
+function VoronoiCell(con::AbstractContainer, itor)
+    raw_con = __raw(con)
+    vc = VoronoiCell(raw_con)
+    compute_cell!(vc, raw_con, itor)
+    return vc
+end
+
+"""
     voronoicell_box((xmin, ymin, zmin), (xmax, ymax, zmax))
 
 Create a Voronoi cell initialized as rectangular cuboid with provided lower and higher
@@ -39,6 +60,33 @@ function voronoicell_octahedron(r::Real)
     return v
 end
 
+function reset_to_box!(vc::VoronoiCell, (u1, v1, w1), (u2, v2, w2))
+    xmin, xmax, ymin, ymax, zmin, zmax = Float64.((u1, u2, v1, v2, w1, w2))
+    __cxxwrap_init!(vc, xmin, xmax, ymin, ymax, zmin, zmax)
+    return vc
+end
+
+function reset_to_tetrahedron!(
+    vc::VoronoiCell,
+    (u1, v1, w1),
+    (u2, v2, w2),
+    (u3, v3, w3),
+    (u4, v4, w4)
+)
+    x1, y1, z1 = Float64.((u1, v1, w1))
+    x2, y2, z2 = Float64.((u2, v2, w2))
+    x3, y3, z3 = Float64.((u3, v3, w4))
+    x4, y4, z4 = Float64.((u4, v4, w4))
+    __cxxwrap_init_tetrahedron!(vc, x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4)
+    return vc
+end
+
+function reset_to_octahedron!(vc::VoronoiCell, r::Real)
+    d = Float64(r)
+    __cxxwrap_init_octahedron!(vc, d)
+    return vc
+end
+
 """
     cut_by_particle_position!(vc::VoronoiCell, pos)
 
@@ -55,6 +103,13 @@ function cut_by_particle_position!(vc::VoronoiCell, pos)
         __cxxwrap_plane!(vc, u, v, w, dsq)
     end
     return vc
+end
+
+function compute_cell!(
+    vc::VoronoiCell, con::AbstractRawContainer, itr
+)
+    cell_is_valid = convert(Bool, __cxxwrap_compute_cell!(vc, con, itr))
+    return vc, cell_is_valid
 end
 
 #############################

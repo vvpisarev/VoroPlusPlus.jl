@@ -66,6 +66,8 @@ module VoroPlusPlus
     # Functions for VoronoiCell Class
     export VoronoiCell
     export voronoicell_box, voronoicell_tetrahedron, voronoicell_octahedron
+    export reset_to_box!, reset_to_tetrahedron, reset_to_octahedron!
+    export cut_by_particle_position!
     export volume, check_relations, check_duplicates
     export max_radius_squared, number_of_edges
     export total_edge_distance
@@ -129,10 +131,10 @@ module VoroPlusPlus
         @wrapmodule(() -> joinpath(VORO_JL_WRAPPER_PATH, "libvoro++wrap"))
 
         include("config.jl")
-        include("particle_info.jl")
         include("container.jl")
+        include("particle_info.jl")
         include("cell.jl")
-        #include("cell_iter.jl")
+        include("iteration.jl")
         #include("container_prd.jl")
 
         function __init__()
