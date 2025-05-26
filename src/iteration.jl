@@ -20,15 +20,19 @@ function Base.iterate(con::Container)
     cell = VoronoiCell(con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
-    return (particle => cell), itor
+    return (particle => cell), (__next!(itor), itor)
 end
 
-function Base.iterate(con::Container, itor)
-    !__next!(itor) && return nothing
+function Base.iterate(con::Container, (hasnext, itor))
+    hasnext || return nothing
     cell = VoronoiCell(con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
-    return (particle => cell), itor
+    return (particle => cell), (__next!(itor), itor)
+end
+
+function Base.isdone(con::Container, (hasnext,))
+    return !hasnext
 end
 
 struct Unsafe{T}
@@ -42,14 +46,14 @@ function Base.iterate(ucon::Unsafe{<:AbstractContainer})
     cell = VoronoiCell(con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
-    return (particle => cell), (itor, cell)
+    return (particle => cell), (__next!(itor), itor, cell)
 end
 
-function Base.iterate(ucon::Unsafe{<:AbstractContainer}, (itor, cell))
+function Base.iterate(ucon::Unsafe{<:AbstractContainer}, (hasnext, itor, cell))
     con = ucon.container
-    !__next!(itor) && return nothing
+    hasnext || return nothing
     compute_cell!(cell, con.con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
-    return (particle => cell), (itor, cell)
+    return (particle => cell), (__next!(itor), itor, cell)
 end

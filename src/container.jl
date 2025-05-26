@@ -19,8 +19,8 @@ Allocate space for a container of Voronoi cells.
 """
 function container(
     ;
-    bounds::Tuple{NTuple{3,Integer},NTuple{3,Integer}},
-    nblocks::NTuple{3,Real},
+    bounds::Tuple{NTuple{3,Real},NTuple{3,Real}},
+    nblocks::NTuple{3,Integer},
     periodic::NTuple{3,Bool}=(false, false, false),
     particles_per_block::Integer=8,
     ordering::ContainerIterationOrder=UnspecifiedOrder(),
@@ -51,8 +51,8 @@ Allocate space for a container of Voronoi cells for polydisperse particles.
 """
 function polydisperse_container(
     ;
-    bounds::Tuple{NTuple{3,Integer},NTuple{3,Integer}},
-    nblocks::NTuple{3,Real},
+    bounds::Tuple{NTuple{3,Real},NTuple{3,Real}},
+    nblocks::NTuple{3,Integer},
     periodic::NTuple{3,Bool}=(false, false, false),
     particles_per_block::Integer=8,
     ordering::ContainerIterationOrder=UnspecifiedOrder(),
@@ -78,16 +78,16 @@ __raw(con::AbstractRawContainer) = con
 __raw(con::Container) = con.con
 
 @doc """
-    __cxxwrap_add_point!(con::RawContainer[, ord::InsertionOrder], id::Int32, x::Float64, y::Float64, z::Float64)
+    __cxxwrap_put!(con::RawContainer[, ord::InsertionOrder], id::Int32, x::Float64, y::Float64, z::Float64)
 
 Wrapper for `con.put([ord,] id, x, y, z)`.
-""" __cxxwrap_add_point!(::RawContainer)
+""" __cxxwrap_put!(::RawContainer)
 
 @doc """
-    __cxxwrap_add_point!(con::RawContainerPoly[, ord::InsertionOrder], id::Int32, x::Float64, y::Float64, z::Float64, r::Float64)
+    __cxxwrap_put!(con::RawContainerPoly[, ord::InsertionOrder], id::Int32, x::Float64, y::Float64, z::Float64, r::Float64)
 
 Wrapper for `con.put([ord,] id, x, y, z, r)`.
-""" __cxxwrap_add_point!(::RawContainerPoly)
+""" __cxxwrap_put!(::RawContainerPoly)
 
 """
     __add_point!(con::AbstractRawContainer, ord::ContainerIterationOrder, id, x, y, z[, r])
@@ -199,10 +199,10 @@ function Base.empty!(con::Container{C,O}) where {C,O}
 end
 
 """
-   periodic(con::AbstractContainer)
+   periodicity(con::AbstractContainer)
 
 Return periodicity flags in X, Y, Z directions.
 """
-function periodic(con::AbstractContainer)
+function periodicity(con::AbstractContainer)
     return Bool.(__cxxwrap_periodic(__raw(con)))
 end

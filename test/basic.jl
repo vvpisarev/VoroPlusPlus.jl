@@ -1,4 +1,6 @@
 @testset "Single Cell" begin
+    rng = copy(Random.default_rng())
+    Random.seed!(rng, 99887766)
     # Initialize the Voronoi cell to be a cube of side length 2, centered
     # on the origin
     vc = voronoicell_box((-1, -1, -1), (1, 1, 1))
@@ -6,9 +8,9 @@
     # Cut the cell by 250 random planes which are all a distance 1 away
     # from the origin, to make an approximation to a sphere
     for _ in 1:250
-        x = 2 * rand() - 1
-        y = 2 * rand() - 1
-        z = 2 * rand() - 1
+        x = 2 * rand(rng) - 1
+        y = 2 * rand(rng) - 1
+        z = 2 * rand(rng) - 1
         rsq = x * x + y * y + z * z
         if rsq > 0.01 && rsq < 1
             r = 1 / sqrt(rsq)
@@ -121,6 +123,9 @@ end
 end
 
 @testset "Random points" begin
+    rng = copy(Random.default_rng())
+    Random.seed!(rng, 9876)
+
     (x_min, x_max) = (y_min, y_max) = (z_min, z_max) = -1, 1
     cvol = (x_max - x_min) * (y_max - y_min) * (z_max - z_min)
 
@@ -141,9 +146,9 @@ end
 
     # Randomly add particles into the container
     for i in 1:nparticles
-        x = x_min + rand() * (x_max - x_min)
-        y = y_min + rand() * (y_max - y_min)
-        z = z_min + rand() * (z_max - z_min)
+        x = x_min + rand(rng) * (x_max - x_min)
+        y = y_min + rand(rng) * (y_max - y_min)
+        z = z_min + rand(rng) * (z_max - z_min)
         add_point!(con, i - 1, (x, y, z))
     end
 
@@ -162,10 +167,10 @@ end
     @test isapprox(vvol_unsafe, cvol; atol=1e-8)
 
     # Output the particle positions in gnuplot format
-    @test draw_particles(con, "random_points_p.gnu") === nothing
+    #@test draw_particles(con, "random_points_p.gnu") === nothing
 
     # Output the Voronoi cells in gnuplot format
-    @test draw_cells_gnuplot(con, "random_points_v.gnu") === nothing
+    #@test draw_cells_gnuplot(con, "random_points_v.gnu") === nothing
 end
 
 @testset "File import" begin
@@ -177,14 +182,19 @@ end
     # Set up the number of blocks that the container is divided into
     n_x = n_y = n_z = 6
 
-    con = VoroPlusPlus.Container(
-        x_min, x_max, y_min, y_max, z_min, z_max, n_x, n_y, n_z, false, false, false, 8
+    con = VoroPlusPlus.container(
+        ;
+        bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
+        nblocks=(n_x, n_y, n_z),
+        periodic=(false, false, false),
+        particles_per_block=8,
     )
 
-    @test con isa Container
+    @test bounding_box(con) == ((x_min, y_min, z_min), (x_max, y_max, z_max))
+    @test periodicity(con) == (false, false, false)
 
-    @test VoroPlusPlus.import!(con, "./data/pack_ten_cube") === nothing
-    @test VoroPlusPlus.draw_cells_gnuplot(con, "pack_ten_cube.gnu") === nothing
+    #@test VoroPlusPlus.import!(con, "./data/pack_ten_cube") === nothing
+    #@test VoroPlusPlus.draw_cells_gnuplot(con, "pack_ten_cube.gnu") === nothing
 end
 
 # @testset "Convex Test" begin

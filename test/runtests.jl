@@ -1,6 +1,7 @@
 using VoroPlusPlus
 
 using Printf: Format, format
+using Random
 using Test
 
 foreach(rm, filter(endswith(".gnu"), readdir()))

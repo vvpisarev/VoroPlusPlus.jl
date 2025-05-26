@@ -20,6 +20,13 @@ Abstract type to specify whether iteration proceeds in a specific order.
 abstract type ContainerIterationOrder end
 
 """
+    AbstractVoronoiCell
+
+Abstract type for storing Voronoi cell data.
+"""
+abstract type AbstractVoronoiCell end
+
+"""
     RawContainer
 
 Wrapper for Voro++ `container` type.

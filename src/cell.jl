@@ -28,6 +28,16 @@ function VoronoiCell(con::AbstractContainer, itor)
 end
 
 """
+    CheckedVoronoiCell
+
+Voronoi cell with added validity flag.
+"""
+struct CheckedVoronoiCell<:AbstractVoronoiCell
+    cell::VoronoiCellAllocated
+    valid::Bool
+end
+
+"""
     voronoicell_box((xmin, ymin, zmin), (xmax, ymax, zmax))
 
 Create a Voronoi cell initialized as rectangular cuboid with provided lower and higher

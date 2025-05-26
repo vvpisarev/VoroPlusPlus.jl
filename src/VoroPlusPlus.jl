@@ -21,7 +21,7 @@ module VoroPlusPlus
     export container, polydisperse_container
 
     export bounding_box
-    export periodic
+    export periodicity
     export add_point!, import!
     export draw_particles, draw_cells_gnuplot
     export draw_particles_pov
