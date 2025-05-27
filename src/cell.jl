@@ -124,51 +124,91 @@ end
 
 #############################
 
+__get_nu(vc::VoronoiCell) = reinterpret(Ptr{Int32}, __cxxwrap_get_nu(vc))
+__get_pts(vc::VoronoiCell) = reinterpret(Ptr{Float64}, __cxxwrap_get_pts(vc))
+
 function __vertex_ordering(vc::VoronoiCell)
-    nu = reinterpret(Ptr{Int32}, __get_nu(vc))
+    nu = __get_nu(vc)
     len = __get_current_vertices(vc)
     return unsafe_wrap(Array, nu, (len,); own=false)
 end
 
 function __vertex_positions(vc::VoronoiCell)
-    nu = reinterpret(Ptr{Float64}, __get_pts(vc))
-    len = __get_current_vertices(vc)
-    return unsafe_wrap(Array, nu, (4*len,); own=false)
+    pts = __get_pts(vc)
+    cur_vertices = __get_current_vertices(vc)
+    return unsafe_wrap(Array, pts, (4*cur_vertices,); own=false)
 end
 
-function vertex_positions!(pos::AbstractArray, vc::VoronoiCell)
+function vertex_positions!(pos::AbstractVector{<:Real}, vc::VoronoiCell)
     vp_raw = __vertex_positions(vc)
-    len = num_vertices(vc)
+    len = __get_p(vc)
     if length(pos) != 3 * len
         resize!(pos, 3 * len)
     end
     @inbounds for k in 0:len-1
-        @views pos[3*k+1:3*k+3] .= vp_raw[4*k+1:4*k+3]
+        @views pos[begin+3*k:begin+3*k+2] .= 0.5 .* vp_raw[4*k+1:4*k+3]
     end
     return pos
 end
 
-function vertex_positions(::Type{Vector{T}}, vc::VoronoiCell) where {T}
-    len = num_vertices(vc)
+function vertex_positions!(pos::AbstractVector, vc::VoronoiCell)
+    vp_raw = __vertex_positions(vc)
+    len = __get_p(vc)
+    if length(pos) != len
+        resize!(pos, len)
+    end
+    @inbounds for k in 0:len-1
+        p = k << 2
+        pos[begin+k] = 0.5 .* (vp_raw[p+1], vp_raw[p+2], vp_raw[p+3])
+    end
+    return pos
+end
+
+@propagate_inbounds function vertex_positions!(pos::AbstractArray{<:Real}, vc::VoronoiCell)
+    vp_raw = __vertex_positions(vc)
+    len = __get_p(vc)
+    @boundscheck if length(pos) != 3 * len
+        throw(DimensionMismatch("The length of the output array does not match the size of vertex array"))
+    end
+    for k in 0:len-1
+        @views pos[begin+3*k:begin+3*k+2] .= 0.5 .* vp_raw[4*k+1:4*k+3]
+    end
+    return pos
+end
+
+function vertex_positions(::Type{Vector{T}}, vc::VoronoiCell) where {T<:Real}
+    len = __get_p(vc)
     pos = Vector{T}(undef, 3*len)
     return vertex_positions!(pos, vc)
 end
 
+function vertex_positions(::Type{Vector{T}}, vc::VoronoiCell) where {T}
+    len = __get_p(vc)
+    pos = Vector{T}(undef, len)
+    return vertex_positions!(pos, vc)
+end
+
 function vertex_positions(::Type{Vector}, vc::VoronoiCell)
-    len = num_vertices(vc)
-    pos = Vector{Float64}(undef, 3*len)
+    len = __get_p(vc)
+    pos = Vector{SVector{3,Float64}}(undef, len)
+    return vertex_positions!(pos, vc)
+end
+
+function vertex_positions(vc::VoronoiCell)
+    len = __get_p(vc)
+    pos = Vector{SVector{3,Float64}}(undef, len)
     return vertex_positions!(pos, vc)
 end
 
 function vertex_positions(::Type{Matrix{T}}, vc::VoronoiCell) where {T}
-    len = num_vertices(vc)
+    len = __get_p(vc)
     pos = Matrix{T}(undef, 3, len)
     vertex_positions!(pos, vc)
     return pos
 end
 
 function vertex_positions(::Type{Matrix}, vc::VoronoiCell)
-    len = num_vertices(vc)
+    len = __get_p(vc)
     pos = Matrix{Float64}(undef, 3, len)
     vertex_positions!(pos, vc)
     return pos

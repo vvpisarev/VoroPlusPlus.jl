@@ -4,6 +4,10 @@
     # Initialize the Voronoi cell to be a cube of side length 2, centered
     # on the origin
     vc = voronoicell_box((-1, -1, -1), (1, 1, 1))
+    @info "Vertex positions"
+    foreach(println, vertex_positions(Vector, vc))
+
+    @info "" volume(vc)
 
     # Cut the cell by 250 random planes which are all a distance 1 away
     # from the origin, to make an approximation to a sphere
@@ -26,8 +30,7 @@
     # Output the Voronoi cell to a file, in the gnuplot format
     @test draw_gnuplot("single_cell.gnu", vc) === nothing
 
-    @test vertex_positions(Matrix, vc) == vertex_positions(Matrix{ComplexF64}, vc)
-    @test vertex_positions(Vector, vc) == vertex_positions(Vector{ComplexF64}, vc)
+    @test eachcol(vertex_positions(Matrix, vc)) == vertex_positions(vc)
 end
 
 @testset "Platonic Solids" begin
