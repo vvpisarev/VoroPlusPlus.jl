@@ -5,7 +5,7 @@
     # on the origin
     vc = voronoicell_box((-1, -1, -1), (1, 1, 1))
     @info "Vertex positions"
-    foreach(println, vertex_positions(Vector, vc))
+    foreach(println, vertex_positions(vc))
 
     @info "" volume(vc)
 
