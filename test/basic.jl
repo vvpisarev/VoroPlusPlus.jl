@@ -168,6 +168,11 @@ end
     @info "Difference" cvol - vvol
     @test isapprox(vvol, cvol; atol=1e-8)
     @test isapprox(vvol_unsafe, cvol; atol=1e-8)
+    neigh_vec = Int32[]
+    neigh_std_vec = StdVector{Int32}()
+    for (part, cell) in con
+        @test get_neighbors!(neigh_vec, cell) == get_neighbors!(neigh_std_vec, cell)
+    end
 
     # Output the particle positions in gnuplot format
     #@test draw_particles(con, "random_points_p.gnu") === nothing

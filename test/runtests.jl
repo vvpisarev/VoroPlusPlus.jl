@@ -1,5 +1,6 @@
 using VoroPlusPlus
 
+using CxxWrap
 using Printf: Format, format
 using Random
 using Test

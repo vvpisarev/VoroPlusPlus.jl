@@ -143,15 +143,15 @@ end
 
 function __reset_edges!(vc::VoronoiCell)
     p = __get_p(vc)
-    nu = __get_nu(vc)
-    ed = __get_ed(vc)
-    for i in 1:p
-        for j in 1:unsafe_load(nu, i)
-            ed_ij = unsafe_load(unsafe_load(ed, i), j)
-            if ed_ij >= 0
+    nu = UnsafeIndexable(__get_nu(vc))
+    ed = UnsafeIndexable(__get_ed(vc))
+    for i in OneTo(p)
+        for j in OneTo(nu[i])
+            ed_ij = ed[i, j] + true
+            if ed_ij >= one(ed_ij)
                 error("Edge reset routine found a previously untested edge")
             else
-                unsafe_store!(unsafe_load(ed, i), -ed_ij-true, j)
+                ed[i, j] = -ed_ij
             end
         end
     end
@@ -233,33 +233,37 @@ function vertex_positions(::Type{Matrix}, vc::VoronoiCell)
     return pos
 end
 
-function neighbors!(v::AbstractVector{<:Real}, vc::VoronoiCell)
-	empty!(v)
-	p = __get_p(vc)
-    nu = __get_nu(vc)
-    ed = __get_ed(vc)
-    ne = __get_ne(vc)
-    for i in 2:p
-        nu_i = unsafe_load(nu, i)
-        for j in 1:nu_i
-            ed_i = unsafe_load(ed, i)
-            k = unsafe_load(ed_i, j)
-            if k >= 0
-                push!(v, unsafe_load(unsafe_load(ne, i), j))
-                unsafe_store!(ed_i, -k-true, j)
-                l = __cycle_up(vc, unsafe_load(ed_i, j + nu_i), k)
+function get_neighbors!(v::Vector{<:Integer}, vc::VoronoiCell)
+    empty!(v)
+    p = __get_p(vc)
+    nu = UnsafeIndexable(__get_nu(vc))
+    ed = UnsafeIndexable(__get_ed(vc))
+    ne = UnsafeIndexable(__get_ne(vc))
+    for i in one(p)+true:p
+        nu_i = nu[i]
+        for j in OneTo(nu_i)
+            k = ed[i,j] + true
+            if k >= one(k)
+                push!(v, ne[i,j])
+                ed[i,j] = -k
+                l = __cycle_up(vc, ed[i,j + nu_i], k-true) + true
                 while true
-                    ed_k = unsafe_load(ed, k+1)
-                    m = unsafe_load(ed_k, l+1)
-                    unsafe_store!(ed_k, -m-true, l+1)
-                    l = __cycle_up(vc, unsafe_load(ed_k, l+1+unsafe_get(nu, k+1)), m)
+                    m = ed[k,l] + true
+                    ed[k,l] = -m
+                    l = __cycle_up(vc, ed[k,l+nu[k]], m-true) + true
                     k = m
-                    k + true == i && break
+                    k == i && break
                 end
             end
         end
     end
-	__reset_edges!(vc);
+    __reset_edges!(vc)
+    return v
+end
+
+function get_neighbors!(v::StdVector{Int32}, vc::VoronoiCell)
+	__cxxwrap_get_neighbors!(v, vc)
+    return v
 end
 
 function draw_gnuplot(io::IOStream, vc::VoronoiCell, disp = (0.0, 0.0, 0.0))

@@ -1,5 +1,5 @@
 module VoroPlusPlus
-    using Base: @propagate_inbounds
+    using Base: OneTo, @propagate_inbounds
     using CxxWrap
     using Preferences
     using Printf: Format, format
@@ -66,9 +66,10 @@ module VoroPlusPlus
     # Functions for VoronoiCell Class
     export VoronoiCell
     export voronoicell_box, voronoicell_tetrahedron, voronoicell_octahedron
-    export reset_to_box!, reset_to_tetrahedron, reset_to_octahedron!
+    export reset_to_box!, reset_to_tetrahedron!, reset_to_octahedron!
     export cut_by_particle_position!
     export volume, check_relations, check_duplicates
+    export get_neighbors!
     export max_radius_squared, number_of_edges
     export total_edge_distance
     export number_of_faces, surface_area
@@ -76,9 +77,6 @@ module VoroPlusPlus
     export num_vertices, root_vertex
     export init_octahedron, plane_intersects
     export centroid!, nplane, init_tetrahedron
-    #Inherited from voronoicell_base
-    export init_base
-    export init_octahedron_base, init_tetrahedron_base
     export translate, plane_intersects_guess
     export construct_relations
     export print_edges, cycle_up, cycle_down
@@ -89,12 +87,6 @@ module VoroPlusPlus
     export output_face_perimeters, output_face_freq_table
     export output_face_orders, output_face_areas
     export output_normals, output_face_vertices
-
-    # Functions for VoronoiCell_Neighbor Class
-    export VoronoiCell_Neighbor
-    export init, init_octahedron, init_tetrahedron
-    export nplane_rsq, nplane, plane_rsq, plane
-    export check_facets, print_edges_neighbors
 
     # Functions for Containter Periodic Poly (conprdply) Class
     export Container_Periodic_Poly
@@ -127,10 +119,11 @@ module VoroPlusPlus
     const VORO_JL_WRAPPER_PATH = @load_preference("VORO_JL_WRAPPER_PATH")
 
     @static if VORO_JL_WRAPPER_PATH !== nothing
-        include("abstract_types.jl")
+        include("typedefs.jl")
         @wrapmodule(() -> joinpath(VORO_JL_WRAPPER_PATH, "libvoro++wrap"))
 
         include("config.jl")
+        include("nested_ptr.jl")
         include("container.jl")
         include("particle_info.jl")
         include("cell.jl")
