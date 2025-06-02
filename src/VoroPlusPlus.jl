@@ -112,8 +112,19 @@ module VoroPlusPlus
 
     function set_wrapper_path(path::AbstractString="/usr/lib")
         # Set it in our runtime values, as well as saving it to disk
-        @set_preferences!("VORO_JL_WRAPPER_PATH" => path)
-        @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
+        if isfile(joinpath(path, "libvoro++wrap.so"))
+            @set_preferences!("VORO_JL_WRAPPER_PATH" => path)
+            @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
+        elseif isfile(joinpath(path, "lib", "libvoro++wrap.so"))
+            @set_preferences!("VORO_JL_WRAPPER_PATH" => joinpath(path, "lib"))
+            @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
+        else
+            mesg = "Could not find valid wrapper library at " *
+                    "$(joinpath(path, "libvoro++wrap.so")) or " *
+                    "$(joinpath(path, "lib", "libvoro++wrap.so")). " *
+                    "The setting has no effect."
+            @warn mesg
+        end
     end
 
     const VORO_JL_WRAPPER_PATH = @load_preference("VORO_JL_WRAPPER_PATH")
