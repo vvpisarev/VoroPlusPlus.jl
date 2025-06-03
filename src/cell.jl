@@ -131,14 +131,14 @@ __get_ne(vc::VoronoiCell) = reinterpret(Ptr{Ptr{Int32}}, __cxxwrap_get_ne(vc))
 
 function __vertex_ordering(vc::VoronoiCell)
     nu = __get_nu(vc)
-    len = __get_current_vertices(vc)
-    return unsafe_wrap(Array, nu, (len,); own=false)
+    total_vertices = __get_p(vc)
+    return unsafe_wrap(Array, nu, (total_vertices,); own=false)
 end
 
 function __vertex_positions(vc::VoronoiCell)
     pts = __get_pts(vc)
-    cur_vertices = __get_current_vertices(vc)
-    return unsafe_wrap(Array, pts, (4*cur_vertices,); own=false)
+    total_vertices = __get_p(vc)
+    return unsafe_wrap(Array, pts, (4*total_vertices,); own=false)
 end
 
 function __reset_edges!(vc::VoronoiCell)
@@ -158,6 +158,39 @@ function __reset_edges!(vc::VoronoiCell)
     return vc
 end
 
+"""
+    __test_vector!(v::Vector, T::DataType)
+
+Test if a vector is suitable for storing datatype `T`.
+"""
+function __test_vector(v::Vector{<:Number})
+    try
+        push!(v, Float64(pi))
+        pop!(v)
+    catch
+        error("Cannot store Float64 items in the vector")
+    end
+end
+
+function __test_vector(v::Vector{T}) where {T}
+    try
+        val = T(SVector{3,Float64}(pi, pi, pi))
+        push!(v, val)
+        pop!(v)
+    catch
+        error("Cannot store SVector{3,Float64} items in the vector")
+    end
+end
+
+function number_of_vertices(vc::VoronoiCell)
+    return __get_p(vc)
+end
+
+function vertex_positions!(pos::StdVector{Float64}, vc::VoronoiCell)
+    __cxxwrap_vertices!(pos, vc)
+    return pos
+end
+
 function vertex_positions!(pos::AbstractVector{<:Real}, vc::VoronoiCell)
     vp_raw = __vertex_positions(vc)
     len = __get_p(vc)
@@ -165,7 +198,8 @@ function vertex_positions!(pos::AbstractVector{<:Real}, vc::VoronoiCell)
         resize!(pos, 3 * len)
     end
     @inbounds for k in 0:len-1
-        @views pos[begin+3*k:begin+3*k+2] .= 0.5 .* vp_raw[4*k+1:4*k+3]
+        p = k << 2
+        @views pos[begin+3*k:begin+3*k+2] .= 0.5 .* vp_raw[p+1:p+3]
     end
     return pos
 end
@@ -262,9 +296,131 @@ function get_neighbors!(v::Vector{<:Integer}, vc::VoronoiCell)
 end
 
 function get_neighbors!(v::StdVector{Int32}, vc::VoronoiCell)
-	__cxxwrap_get_neighbors!(v, vc)
+    __cxxwrap_get_neighbors!(v, vc)
     return v
 end
+
+function get_normals!(v::Vector, vc::VoronoiCell)
+    empty!(v)
+    __test_vector(v)
+    p = __get_p(vc)
+    nu = UnsafeIndexable(__get_nu(vc))
+    ed = UnsafeIndexable(__get_ed(vc))
+    pts = UnsafeIndexable(__get_pts(vc))
+    for i in one(p)+true:p
+        for j in Base.OneTo(nu[i])
+            k = ed[i, j] + true
+            if k >= one(k)
+                __append_normal!(v, vc, ed, nu, pts, i, j, k)
+            end
+        end
+    end
+    __reset_edges!(vc)
+    return v
+end
+
+function __append_normal!(v::Vector{<:Number}, vc, ed, nu, pts, i, j, k)
+    orig_len = length(v)
+    ed[i, j] = -k
+    l = __cycle_up(vc, ed[i, nu[i]+j], k-true) + true
+    n_ed = one(k)
+    Sxx = Syy = Szz = Sxy = Sxz = Syz = 0.0
+    xc = pts[4 * k - 3]
+    yc = pts[4 * k - 2]
+    zc = pts[4 * k - 1]
+    push!(v, xc, yc, zc)
+    while true
+        n_ed += true
+        m = ed[k, l] + true
+        ed[k, l] = -m
+        ux = pts[4 * m - 3]
+        uy = pts[4 * m - 2]
+        uz = pts[4 * m - 1]
+        xc += ux
+        yc += uy
+        zc += uz
+        push!(v, ux, uy, uz)
+        l = __cycle_up(vc, ed[k, nu[k]+l], m-true) + true
+        k = m
+        k == i && break
+    end
+    com = SVector(xc, yc, zc) / n_ed
+    # Prepare gyration tensor
+    for p in orig_len:3:lastindex(v)-3
+        ux, uy, uz = (v[p+1], v[p+2], v[p+3]) .- com
+        Sxx += ux * ux
+        Syy += uy * uy
+        Szz += uz * uz
+        Sxy += ux * uy
+        Sxz += ux * uz
+        Syz += uy * uz
+    end
+    resize!(v, orig_len)
+    S = Symmetric(SMatrix{3,3,Float64,9}(Sxx, Sxy, Sxz, Sxy, Syy, Syz, Sxz, Syz, Szz))
+    vals, vecs = eigen(S / n_ed)
+    if 1.0 - vals[1] / vals[2] > eps() * 10
+        nrm = vecs[:, 1]
+        if dot(nrm, com) < 0
+            nrm = -nrm
+        end
+        push!(v, nrm...)
+    else
+        push!(v, 0.0, 0.0, 0.0)
+    end
+    return v
+end
+
+function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
+    ed[i, j] = -k
+    l = __cycle_up(vc, ed[i, nu[i]+j], k-true) + true
+    n_ed = one(k)
+    Sxx = Syy = Szz = Sxy = Sxz = Syz = 0.0
+    xc = pts[4 * k - 3]
+    yc = pts[4 * k - 2]
+    zc = pts[4 * k - 1]
+    push!(v, SVector(xc, yc, zc))
+    while true
+        n_ed += true
+        m = ed[k, l] + true
+        ed[k, l] = -m
+        ux = pts[4 * m - 3]
+        uy = pts[4 * m - 2]
+        uz = pts[4 * m - 1]
+        xc += ux
+        yc += uy
+        zc += uz
+        push!(v, SVector(ux, uy, uz))
+        l = __cycle_up(vc, ed[k, nu[k]+l], m-true) + true
+        k = m
+        k == i && break
+    end
+    com = SVector(xc, yc, zc) / n_ed
+    # Prepare gyration tensor
+    for p in lastindex(v)-n_ed+1:lastindex(v)
+        ux, uy, uz = v[p] .- com
+        Sxx += ux * ux
+        Syy += uy * uy
+        Szz += uz * uz
+        Sxy += ux * uy
+        Sxz += ux * uz
+        Syz += uy * uz
+    end
+    resize!(v, length(v) - n_ed)
+    S = Symmetric(SMatrix{3,3,Float64,9}(Sxx, Sxy, Sxz, Sxy, Syy, Syz, Sxz, Syz, Szz))
+    vals, vecs = eigen(S / n_ed)
+    if 1.0 - vals[1] / vals[2] > eps() * 10
+        nrm = vecs[:, 1]
+        if dot(nrm, com) < 0
+            nrm = -nrm
+        end
+        push!(v, nrm)
+    else
+        push!(v, SVector(0.0, 0.0, 0.0))
+    end
+    return v
+end
+
+normals(vc::VoronoiCell) = get_normals!(SVector{3,Float64}[], vc)
 
 function draw_gnuplot(io::IOStream, vc::VoronoiCell, disp = (0.0, 0.0, 0.0))
     _x, _y, _z = disp

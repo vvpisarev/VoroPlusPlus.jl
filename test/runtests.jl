@@ -16,6 +16,7 @@ foreach(rm, filter(endswith(".vec"), readdir()))
 foreach(rm, filter(endswith(".vol"), readdir()))
 #Implemented
 include("basic.jl")
+include("cell_statistics.jl")
 #include("custom.jl")
 #include("degenerate.jl")
 #include("extra.jl")
@@ -25,5 +26,4 @@ include("basic.jl")
 #include("no_release.jl")
 
 # Under Testing refactoring
-#include("centroid.jl")
 #include("particle_info.jl")

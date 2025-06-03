@@ -1,6 +1,7 @@
 module VoroPlusPlus
     using Base: OneTo, @propagate_inbounds
     using CxxWrap
+    using LinearAlgebra: Symmetric, dot, eigen
     using Preferences
     using Printf: Format, format
     using StaticArrays
@@ -68,18 +69,21 @@ module VoroPlusPlus
     export voronoicell_box, voronoicell_tetrahedron, voronoicell_octahedron
     export reset_to_box!, reset_to_tetrahedron!, reset_to_octahedron!
     export cut_by_particle_position!
-    export volume, check_relations, check_duplicates
+    export volume
+    export number_of_vertices
     export get_neighbors!
+    export normals, get_normals!
     export max_radius_squared, number_of_edges
     export total_edge_distance
     export number_of_faces, surface_area
     export draw_gnuplot!, draw_pov, draw_pov_mesh
-    export num_vertices, root_vertex
-    export init_octahedron, plane_intersects
+    export root_vertex
+    export check_relations, check_duplicates
+    export plane_intersects
     export centroid!, nplane, init_tetrahedron
     export translate, plane_intersects_guess
     export construct_relations
-    export print_edges, cycle_up, cycle_down
+    export print_edges
     #Implemented with get and set functions
     export vertex_positions, vertex_positions!
     # Implemented with extern C
