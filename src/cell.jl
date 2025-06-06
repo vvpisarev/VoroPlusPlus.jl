@@ -20,13 +20,6 @@ Create a new Voronoi cell based on the size of `con`.
 """
 VoronoiCell(::AbstractRawContainer)
 
-function VoronoiCell(con::AbstractContainer, itor)
-    raw_con = __raw(con)
-    vc = VoronoiCell(raw_con)
-    compute_cell!(vc, raw_con, itor)
-    return vc
-end
-
 """
     CheckedVoronoiCell
 
@@ -35,6 +28,50 @@ Voronoi cell with added validity flag.
 struct CheckedVoronoiCell<:AbstractVoronoiCell
     cell::VoronoiCellAllocated
     valid::Bool
+end
+
+function CheckedVoronoiCell(con::AbstractContainer, itor)
+    raw_con = __raw(con)
+    vc = VoronoiCell(raw_con)
+    return compute_cell!(vc, raw_con, itor)
+end
+
+__raw(vc::CheckedVoronoiCell) = vc.cell
+__raw(vc::VoronoiCell) = vcat
+
+isvalid(vc::CheckedVoronoiCell) = vc.valid
+isvalid(::VoronoiCell) = true
+
+"""
+    if_valid(fn, vc::CheckedVoronoiCell, default=missing)
+
+If `vc` valid flag is `true`, apply function `fn` to `vc`, else return `default`.
+"""
+function if_valid(fn, vc::CheckedVoronoiCell, default=missing)
+    if isvalid(vc)
+        return fn(__raw(vc))
+    else
+        return default
+    end
+end
+
+"""
+    if_valid(fn, vc::VoronoiCell, default)
+
+Apply function `fn` to `vc`. `default` is ignored, it is there only to unify the interface
+    with `CheckedVoronoiCell`.
+"""
+function if_valid(fn, vc::VoronoiCell, default=missing)
+    return fn(vc)
+end
+
+"""
+    volume(vc::AbstractVoronoiCell)
+
+Return the volume of the Voronoi cell. For invalid cells, return 0.0.
+"""
+function volume(vc::CheckedVoronoiCell)
+    isvalid(vc) ? volume(vc.cell) : 0.0
 end
 
 """
@@ -119,7 +156,11 @@ function compute_cell!(
     vc::VoronoiCell, con::AbstractRawContainer, itr
 )
     cell_is_valid = convert(Bool, __cxxwrap_compute_cell!(vc, con, itr))
-    return vc, cell_is_valid
+    return CheckedVoronoiCell(vc, cell_is_valid)
+end
+
+function compute_cell!(vc::CheckedVoronoiCell, con::AbstractRawContainer, itr)
+    compute_cell!(vc.cell, con, itr)
 end
 
 #############################
@@ -141,17 +182,19 @@ function __vertex_positions(vc::VoronoiCell)
     return unsafe_wrap(Array, pts, (4*total_vertices,); own=false)
 end
 
-function __reset_edges!(vc::VoronoiCell)
-    p = __get_p(vc)
-    nu = UnsafeIndexable(__get_nu(vc))
-    ed = UnsafeIndexable(__get_ed(vc))
+function __reset_edges!(
+    vc::VoronoiCell,
+    p=__get_p(vc),
+    nu=UnsafeIndexable(__get_nu(vc)),
+    ed=UnsafeIndexable(__get_ed(vc))
+)
     for i in OneTo(p)
         for j in OneTo(nu[i])
-            ed_ij = ed[i, j] + true
-            if ed_ij >= one(ed_ij)
+            ed_ij = ed[i, j]
+            if ed_ij >= zero(ed_ij)
                 error("Edge reset routine found a previously untested edge")
             else
-                ed[i, j] = -ed_ij
+                ed[i, j] = -ed_ij - true
             end
         end
     end
@@ -191,7 +234,7 @@ function vertex_positions!(pos::StdVector{Float64}, vc::VoronoiCell)
     return pos
 end
 
-function vertex_positions!(pos::AbstractVector{<:Real}, vc::VoronoiCell)
+function vertex_positions!(pos::AbstractVector{<:Number}, vc::VoronoiCell)
     vp_raw = __vertex_positions(vc)
     len = __get_p(vc)
     if length(pos) != 3 * len
@@ -217,7 +260,7 @@ function vertex_positions!(pos::AbstractVector, vc::VoronoiCell)
     return pos
 end
 
-@propagate_inbounds function vertex_positions!(pos::AbstractArray{<:Real}, vc::VoronoiCell)
+@propagate_inbounds function vertex_positions!(pos::AbstractArray{<:Number}, vc::VoronoiCell)
     vp_raw = __vertex_positions(vc)
     len = __get_p(vc)
     @boundscheck if length(pos) != 3 * len
@@ -229,42 +272,48 @@ end
     return pos
 end
 
-function vertex_positions(::Type{Vector{T}}, vc::VoronoiCell) where {T<:Real}
-    len = __get_p(vc)
-    pos = Vector{T}(undef, 3*len)
-    return vertex_positions!(pos, vc)
+function vertex_positions!(pos::AbstractVector, vc::CheckedVoronoiCell)
+    if_valid(vc, isempty(pos) ? pos : empty!(pos)) do cell
+        vertex_positions!(pos, cell)
+    end
 end
 
-function vertex_positions(::Type{Vector{T}}, vc::VoronoiCell) where {T}
-    len = __get_p(vc)
-    pos = Vector{T}(undef, len)
-    return vertex_positions!(pos, vc)
+function vertex_positions(::Type{Vector{T}}, vc::AbstractVoronoiCell) where {T}
+    pos = T[]
+    if_valid(vc, pos) do vc
+        vertex_positions!(pos, vc)
+    end
 end
 
-function vertex_positions(::Type{Vector}, vc::VoronoiCell)
-    len = __get_p(vc)
-    pos = Vector{SVector{3,Float64}}(undef, len)
-    return vertex_positions!(pos, vc)
+function vertex_positions(::Type{Vector}, vc::AbstractVoronoiCell)
+    pos = SVector{3,Float64}[]
+    if_valid(vc, pos) do vc
+        vertex_positions!(pos, vc)
+    end
 end
 
-function vertex_positions(vc::VoronoiCell)
-    len = __get_p(vc)
-    pos = Vector{SVector{3,Float64}}(undef, len)
-    return vertex_positions!(pos, vc)
+function vertex_positions(vc::AbstractVoronoiCell)
+    pos = SVector{3,Float64}[]
+    if_valid(vc, pos) do vc
+        vertex_positions!(pos, vc)
+    end
 end
 
-function vertex_positions(::Type{Matrix{T}}, vc::VoronoiCell) where {T}
-    len = __get_p(vc)
+function vertex_positions(::Type{Matrix{T}}, vc::AbstractVoronoiCell) where {T}
+    len = isvalid(vc) ? __get_p(vc) : zero(Int32)
     pos = Matrix{T}(undef, 3, len)
-    vertex_positions!(pos, vc)
-    return pos
+    if_valid(vc, pos) do vc
+        vertex_positions!(pos, vc)
+        return pos
+    end
 end
 
-function vertex_positions(::Type{Matrix}, vc::VoronoiCell)
-    len = __get_p(vc)
-    pos = Matrix{Float64}(undef, 3, len)
-    vertex_positions!(pos, vc)
-    return pos
+function vertex_positions(::Type{Matrix}, vc::AbstractVoronoiCell)
+    pos = Float64[]
+    if_valid(vc, pos) do vc
+        vertex_positions!(pos, vc)
+    end
+    return reshape(pos, 3, :)
 end
 
 function get_neighbors!(v::Vector{<:Integer}, vc::VoronoiCell)
@@ -291,13 +340,19 @@ function get_neighbors!(v::Vector{<:Integer}, vc::VoronoiCell)
             end
         end
     end
-    __reset_edges!(vc)
+    __reset_edges!(vc, p, nu, ed)
     return v
 end
 
 function get_neighbors!(v::StdVector{Int32}, vc::VoronoiCell)
     __cxxwrap_get_neighbors!(v, vc)
     return v
+end
+
+function get_neighbors!(v::AbstractVector{<:Integer}, vc::CheckedVoronoiCell)
+    if_valid(vc, isempty(v) ? v : empty!(v)) do vc
+        get_neighbors!(v, vc)
+    end
 end
 
 function get_normals!(v::Vector, vc::VoronoiCell)
@@ -315,7 +370,7 @@ function get_normals!(v::Vector, vc::VoronoiCell)
             end
         end
     end
-    __reset_edges!(vc)
+    __reset_edges!(vc, p, nu, ed)
     return v
 end
 
@@ -420,7 +475,13 @@ function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
     return v
 end
 
-normals(vc::VoronoiCell) = get_normals!(SVector{3,Float64}[], vc)
+function get_normals!(v::AbstractVector, vc::CheckedVoronoiCell)
+    if_valid(vc, isempty(v) ? v : empty!(v)) do vc
+        get_normals!(v, vc)
+    end
+end
+
+normals(vc::AbstractVoronoiCell) = get_normals!(SVector{3,Float64}[], vc)
 
 function draw_gnuplot(io::IOStream, vc::VoronoiCell, disp = (0.0, 0.0, 0.0))
     _x, _y, _z = disp

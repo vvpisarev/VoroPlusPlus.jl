@@ -17,7 +17,7 @@ end
 function Base.iterate(con::Container)
     itor = __container_iterator(con.con, con.ord)
     !__start!(itor) && return nothing
-    cell = VoronoiCell(con, itor)
+    cell = CheckedVoronoiCell(con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
     return (particle => cell), (__next!(itor), itor)
@@ -25,13 +25,13 @@ end
 
 function Base.iterate(con::Container, (hasnext, itor))
     hasnext || return nothing
-    cell = VoronoiCell(con, itor)
+    cell = CheckedVoronoiCell(con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
     return (particle => cell), (__next!(itor), itor)
 end
 
-function Base.isdone(con::Container, (hasnext,))
+function Base.isdone(::Container, (hasnext,))
     return !hasnext
 end
 
@@ -43,7 +43,7 @@ function Base.iterate(ucon::Unsafe{<:AbstractContainer})
     con = ucon.container
     itor = __container_iterator(con.con, con.ord)
     !__start!(itor) && return nothing
-    cell = VoronoiCell(con, itor)
+    cell = CheckedVoronoiCell(con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
     return (particle => cell), (__next!(itor), itor, cell)
