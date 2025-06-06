@@ -506,41 +506,41 @@ function draw_gnuplot(path::AbstractString, vc::VoronoiCell, disp = (0.0, 0.0, 0
 end
 
 
-function output_vertices(path::AbstractString, vc::VoronoiCell, dx::Float64, dy::Float64, dz::Float64 )
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
+function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
+    p = __get_p(vc)
+    nu = UnsafeIndexable(__get_nu(vc))
+    ed = UnsafeIndexable(__get_ed(vc))
+    pts = UnsafeIndexable(__get_pts(vc))
+	
+    fmt = Format("%g %g %g\n")
+    for i in one(p)+true:p
+        for j in Base.OneTo(nu[i])
+            k = ed[i, j] + true
+            if k >= one(k)
+                format(io, fmt, 0.5 * pts[i<<2-3] + dx, 0.5 * pts[i<<2-2] + dy, 0.5 * pts[i<<2-1] + dz)
+                l, m = i, j
+                while true
+                    ed[k, ed[l, nu[l]+m]] = -l
+                    ed[l, m] = -k
+                    l = k
+                    format(io, fmt, 0.5 * pts[k<<2-3] + dx, 0.5 * pts[k<<2-2] + dy, 0.5 * pts[k<<2-1] + dz)
+                    search_edge = false
+                    m = one(m)
+                    while m <= nu[l]
+                        k = ed[l, m] + true
+                        if k >= one(k)
+                            search_edge = true
+                            break
+                        end
+                        m += one(m)
+                    end
+                    search_edge || break
+                end
+                print(io, "\n\n")
+            end
+        end
     end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Vertex positions    : ", file)
-    ccall(
-        (:output_vertices_positions, "libvoro++wrap"), Cvoid,
-        (Ptr{Cvoid}, Cdouble, Cdouble, Cdouble, Ptr{Libc.FILE}),
-        vc.cpp_object, dx, dy, dz, file,)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
-end
-
-function output_vertices(path::AbstractString, vc::VoronoiCell )
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
-    end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Vertex positions    : ", file)
-    ccall(
-        (:output_vertices_nopos, "libvoro++wrap"), Cvoid,
-        (Ptr{Cvoid}, Ptr{Libc.FILE}),
-        vc.cpp_object, file,
-    )
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
+    __reset_edges!(vc, p, nu, ed)
 end
 
 

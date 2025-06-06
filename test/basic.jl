@@ -28,7 +28,12 @@
     @info "" volume(vc) 4/3 * pi / 8
     @test 0 < volume(vc) - 4/3 * pi / 8 < 0.05
     # Output the Voronoi cell to a file, in the gnuplot format
-    @test draw_gnuplot("single_cell.gnu", vc) === nothing
+    draw_gnuplot("single_cell.gnu", vc)
+    buf = IOBuffer()
+    draw_gnuplot(buf, vc)
+    cell_str = String(take!(buf))
+    open("single_cell_jl.gnu", "w") do io; write(io, cell_str); end
+    @test read("single_cell.gnu", String) == cell_str
 
     @test eachcol(vertex_positions(Matrix, vc)) == vertex_positions(vc)
 end
