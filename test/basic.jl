@@ -17,7 +17,7 @@
         z = 2 * rand(rng) - 1
         rsq = x * x + y * y + z * z
         if rsq > 0.01 && rsq < 1
-            r = 1 / sqrt(rsq)
+            r = inv(sqrt(rsq))
             x *= r
             y *= r
             z *= r
@@ -32,7 +32,7 @@
     buf = IOBuffer()
     draw_gnuplot(buf, vc)
     cell_str = String(take!(buf))
-    open("single_cell_jl.gnu", "w") do io; write(io, cell_str); end
+    # open("single_cell_jl.gnu", "w") do io; write(io, cell_str); end
     @test read("single_cell.gnu", String) == cell_str
 
     @test eachcol(vertex_positions(Matrix, vc)) == vertex_positions(vc)

@@ -37,21 +37,47 @@ function CheckedVoronoiCell(con::AbstractContainer, itor)
 end
 
 __raw(vc::CheckedVoronoiCell) = vc.cell
-__raw(vc::VoronoiCell) = vcat
+__raw(vc::VoronoiCell) = vc
 
 isvalid(vc::CheckedVoronoiCell) = vc.valid
 isvalid(::VoronoiCell) = true
 
 """
-    if_valid(fn, vc::CheckedVoronoiCell, default=missing)
+    if_valid(fn, vc::CheckedVoronoiCell, default=nothing)
 
 If `vc` valid flag is `true`, apply function `fn` to `vc`, else return `default`.
+
+# Examples
+
+    if_valid(cell, 0.0) do vc
+        volume(vc)
+    end
 """
-function if_valid(fn, vc::CheckedVoronoiCell, default=missing)
+function if_valid(fn, vc::CheckedVoronoiCell, default=nothing)
     if isvalid(vc)
         return fn(__raw(vc))
     else
         return default
+    end
+end
+
+"""
+    if_valid(fn, vc::CheckedVoronoiCell, handler::Function)
+
+If `vc` valid flag is `true`, apply function `fn` to `vc`, else call `handler()` which must
+    be a zero-argument function.
+
+# Examples
+
+    if_valid(cell, ()->error("Cannot perform operation on a non-valid Voronoi cell")) do vc
+        volume(vc)
+    end
+"""
+function if_valid(fn, vc::CheckedVoronoiCell, handler::Function)
+    if isvalid(vc)
+        return fn(__raw(vc))
+    else
+        return handler()
     end
 end
 
@@ -61,7 +87,7 @@ end
 Apply function `fn` to `vc`. `default` is ignored, it is there only to unify the interface
     with `CheckedVoronoiCell`.
 """
-function if_valid(fn, vc::VoronoiCell, default=missing)
+function if_valid(fn, vc::VoronoiCell, default=nothing)
     return fn(vc)
 end
 
@@ -188,14 +214,12 @@ function __reset_edges!(
     nu=UnsafeIndexable(__get_nu(vc)),
     ed=UnsafeIndexable(__get_ed(vc))
 )
-    for i in OneTo(p)
-        for j in OneTo(nu[i])
-            ed_ij = ed[i, j]
-            if ed_ij >= zero(ed_ij)
-                error("Edge reset routine found a previously untested edge")
-            else
-                ed[i, j] = -ed_ij - true
-            end
+    for i in OneTo(p), j in OneTo(nu[i])
+        ed_ij = ed[i, j]
+        if ed_ij >= zero(ed_ij)
+            error("Edge reset routine found a previously untested edge")
+        else
+            ed[i, j] = -ed_ij - true
         end
     end
     return vc
@@ -362,12 +386,10 @@ function get_normals!(v::Vector, vc::VoronoiCell)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
     pts = UnsafeIndexable(__get_pts(vc))
-    for i in one(p)+true:p
-        for j in Base.OneTo(nu[i])
-            k = ed[i, j] + true
-            if k >= one(k)
-                __append_normal!(v, vc, ed, nu, pts, i, j, k)
-            end
+    for i in one(p)+true:p, j in OneTo(nu[i])
+        k = ed[i, j] + true
+        if k >= one(k)
+            __append_normal!(v, vc, ed, nu, pts, i, j, k)
         end
     end
     __reset_edges!(vc, p, nu, ed)
@@ -511,33 +533,31 @@ function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
     pts = UnsafeIndexable(__get_pts(vc))
-	
+
     fmt = Format("%g %g %g\n")
-    for i in one(p)+true:p
-        for j in Base.OneTo(nu[i])
-            k = ed[i, j] + true
-            if k >= one(k)
-                format(io, fmt, 0.5 * pts[i<<2-3] + dx, 0.5 * pts[i<<2-2] + dy, 0.5 * pts[i<<2-1] + dz)
-                l, m = i, j
-                while true
-                    ed[k, ed[l, nu[l]+m]] = -l
-                    ed[l, m] = -k
-                    l = k
-                    format(io, fmt, 0.5 * pts[k<<2-3] + dx, 0.5 * pts[k<<2-2] + dy, 0.5 * pts[k<<2-1] + dz)
-                    search_edge = false
-                    m = one(m)
-                    while m <= nu[l]
-                        k = ed[l, m] + true
-                        if k >= one(k)
-                            search_edge = true
-                            break
-                        end
-                        m += one(m)
+    for i in one(p)+true:p, j in OneTo(nu[i])
+        k = ed[i, j] + true
+        if k >= one(k)
+            format(io, fmt, 0.5 * pts[i<<2-3] + dx, 0.5 * pts[i<<2-2] + dy, 0.5 * pts[i<<2-1] + dz)
+            l, m = i, j
+            while true
+                ed[k, ed[l, nu[l]+m]+true] = -l
+                ed[l, m] = -k
+                l = k
+                format(io, fmt, 0.5 * pts[k<<2-3] + dx, 0.5 * pts[k<<2-2] + dy, 0.5 * pts[k<<2-1] + dz)
+                search_edge = false
+                m = one(m)
+                while m <= nu[l]
+                    k = ed[l, m] + true
+                    if k >= one(k)
+                        search_edge = true
+                        break
                     end
-                    search_edge || break
+                    m += one(m)
                 end
-                print(io, "\n\n")
+                search_edge || break
             end
+            print(io, "\n\n")
         end
     end
     __reset_edges!(vc, p, nu, ed)
