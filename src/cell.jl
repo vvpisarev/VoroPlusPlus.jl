@@ -101,6 +101,24 @@ function volume(vc::CheckedVoronoiCell)
 end
 
 """
+    number_of_faces(vc::AbstractVoronoiCell)
+
+Return the number of faces of the Voronoi cell. For invalid cells, return zero.
+"""
+function number_of_faces(vc::CheckedVoronoiCell)
+    isvalid(vc) ? number_of_faces(vc.cell) : zero(Int32)
+end
+
+"""
+    number_of_edges(vc::AbstractVoronoiCell)
+
+Return the number of edges of the Voronoi cell. For invalid cells, return zero.
+"""
+function number_of_faces(vc::CheckedVoronoiCell)
+    isvalid(vc) ? number_of_edges(vc.cell) : zero(Int32)
+end
+
+"""
     voronoicell_box((xmin, ymin, zmin), (xmax, ymax, zmax))
 
 Create a Voronoi cell initialized as rectangular cuboid with provided lower and higher
@@ -169,11 +187,11 @@ function cut_by_particle_position!(vc::VoronoiCell, pos)
     if length(pos) == 3
         x, y, z = pos
         u, v, w = Float64.((x, y, z))
-        __cxxwrap_plane!(vc, u, v, w)
+        __cxxwrap_nplane!(vc, u, v, w, zero(Int32))
     elseif length(pos) == 4
         x, y, z, rsq = pos
         u, v, w, dsq = Float64.((x, y, z, rsq))
-        __cxxwrap_plane!(vc, u, v, w, dsq)
+        __cxxwrap_nplane!(vc, u, v, w, dsq, zero(Int32))
     end
     return vc
 end
