@@ -15,4 +15,15 @@
     end
 
     @test reinterpret(Float64, normals(vc)) == get_normals!(Float64[], vc)
+
+    vertices_matrix = vertex_positions(Matrix, vc)
+    vertices_vec = vertex_positions(vc)
+    vertices_stdvec = vertex_positions!(StdVector{Float64}(), vc)
+    @test eachcol(vertices_matrix) == vertices_vec
+    @test reinterpret(Float64, vertices_vec) == vertices_stdvec
+    @test reinterpret(Float64, vertices_vec) == vertex_positions!(Float64[], vc)
+    @test vertices_vec == vertex_positions!(SVector{3,Float64}[], vc, (1, 1, 1)) .- Ref(SVector(1, 1, 1))
+    @test vertices_vec == vertex_positions(vc, (1, 1, 1)) .- Ref(SVector(1, 1, 1))
+    @test vertices_stdvec == vertex_positions!(StdVector{Float64}(), vc, (0, 0, 0))
+    @test vertices_matrix == vertex_positions!(zero(vertices_matrix), vc, (1, 1, 1)) .- 1
 end
