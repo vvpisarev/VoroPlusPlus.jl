@@ -35,7 +35,14 @@
     # open("single_cell_jl.gnu", "w") do io; write(io, cell_str); end
     @test read("single_cell.gnu", String) == cell_str
 
-    @test eachcol(vertex_positions(Matrix, vc)) == vertex_positions(vc)
+    vertices_matrix = vertex_positions(Matrix, vc)
+    vertices_vec = vertex_positions(vc)
+    vertices_stdvec = vertex_positions!(StdVector{Float64}(), vc)
+    @test eachcol(vertices_matrix) == vertices_vec
+    @test reinterpret(Float64, vertices_vec) == vertices_stdvec
+    @test reinterpret(Float64, vertices_vec) == vertex_positions!(Float64[], vc)
+    @test vertices_vec == vertex_positions!(SVector{3,Float64}[], vc, (0, 0, 0))
+    @test vertices_vec == vertex_positions(vc, (0, 0, 0))
 end
 
 @testset "Platonic Solids" begin

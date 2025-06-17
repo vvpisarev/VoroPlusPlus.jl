@@ -3,17 +3,15 @@ using VoroPlusPlus
 using CxxWrap
 using Printf: Format, format
 using Random
+using StaticArrays
 using Test
 
-foreach(rm, filter(endswith(".gnu"), readdir()))
-foreach(rm, filter(endswith(".txt"), readdir()))
-foreach(rm, filter(endswith(".pov"), readdir()))
-foreach(rm, filter(endswith(".custom1"), readdir()))
-foreach(rm, filter(endswith(".custom2"), readdir()))
-foreach(rm, filter(endswith(".custom3"), readdir()))
-foreach(rm, filter(endswith(".points"), readdir()))
-foreach(rm, filter(endswith(".vec"), readdir()))
-foreach(rm, filter(endswith(".vol"), readdir()))
+foreach(
+    rm,
+    path for path in readdir()
+    if endswith(path, r".gnu|.txt|.pov|.custom1|.custom2|.custom3|.points|.vec|.vol")
+)
+
 #Implemented
 include("basic.jl")
 include("cell_statistics.jl")

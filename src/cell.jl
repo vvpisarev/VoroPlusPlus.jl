@@ -114,8 +114,19 @@ end
 
 Return the number of edges of the Voronoi cell. For invalid cells, return zero.
 """
-function number_of_faces(vc::CheckedVoronoiCell)
+function number_of_edges(vc::CheckedVoronoiCell)
     isvalid(vc) ? number_of_edges(vc.cell) : zero(Int32)
+end
+
+"""
+    centroid(vc::AbstractVoronoiCell)
+
+Return the centroid vector of a valid Voronoi cell or a zero vector if the cell is invalid.
+"""
+function centroid(vc::AbstractVoronoiCell)
+    if_valid(vc, SVector(0.0, 0.0, 0.0)) do vc
+        return SVector{3,Float64}(__cxxwrap_centroid(vc))
+    end
 end
 
 """
@@ -276,7 +287,18 @@ function vertex_positions!(pos::StdVector{Float64}, vc::VoronoiCell)
     return pos
 end
 
-function vertex_positions!(pos::AbstractVector{<:Number}, vc::VoronoiCell)
+@propagate_inbounds function vertex_positions!(
+    pos::StdVector{Float64}, vc::VoronoiCell, offset
+)
+    @boundscheck if eachindex(offset) != OneTo(3)
+        throw(DimensionMismatch("Offset for vertex positions must be a length-3 array or tuple"))
+    end
+    dr = offset[1], offset[2], offset[3]
+    __cxxwrap_vertices!(pos, vc, Float64.(dr)...)
+    return pos
+end
+
+function vertex_positions!(pos::Vector{<:Number}, vc::VoronoiCell)
     vp_raw = __vertex_positions(vc)
     len = __get_p(vc)
     if length(pos) != 3 * len
@@ -285,6 +307,25 @@ function vertex_positions!(pos::AbstractVector{<:Number}, vc::VoronoiCell)
     @inbounds for k in 0:len-1
         p = k << 2
         @views pos[begin+3*k:begin+3*k+2] .= 0.5 .* vp_raw[p+1:p+3]
+    end
+    return pos
+end
+
+@propagate_inbounds function vertex_positions!(
+    pos::AbstractVector{<:Number}, vc::VoronoiCell, offset
+)
+    @boundscheck if eachindex(offset) != OneTo(3)
+        throw(DimensionMismatch("Offset for vertex positions must be a length-3 array or tuple"))
+    end
+    dr = offset[1], offset[2], offset[3]
+    vp_raw = __vertex_positions(vc)
+    len = __get_p(vc)
+    if length(pos) != 3 * len
+        resize!(pos, 3 * len)
+    end
+    @inbounds for k in 0:len-1
+        p = k << 2
+        @views pos[begin+3*k:begin+3*k+2] .= 0.5 .* vp_raw[p+1:p+3] .+ dr
     end
     return pos
 end
@@ -302,7 +343,25 @@ function vertex_positions!(pos::AbstractVector, vc::VoronoiCell)
     return pos
 end
 
-@propagate_inbounds function vertex_positions!(pos::AbstractArray{<:Number}, vc::VoronoiCell)
+@propagate_inbounds function vertex_positions!(pos::AbstractVector, vc::VoronoiCell, offset)
+    @boundscheck if eachindex(offset) != OneTo(3)
+        throw(DimensionMismatch("Offset for vertex positions must be a length-3 array or tuple"))
+    end
+    vp_raw = __vertex_positions(vc)
+    len = __get_p(vc)
+    if length(pos) != len
+        resize!(pos, len)
+    end
+    @inbounds for k in 0:len-1
+        p = k << 2
+        pos[begin+k] = 0.5 .* (vp_raw[p+1], vp_raw[p+2], vp_raw[p+3]) .+ offset
+    end
+    return pos
+end
+
+@propagate_inbounds function vertex_positions!(
+    pos::AbstractArray{<:Number}, vc::VoronoiCell
+)
     vp_raw = __vertex_positions(vc)
     len = __get_p(vc)
     @boundscheck if length(pos) != 3 * len
@@ -314,46 +373,74 @@ end
     return pos
 end
 
-function vertex_positions!(pos::AbstractVector, vc::CheckedVoronoiCell)
+@propagate_inbounds function vertex_positions!(
+    pos::AbstractArray{<:Number}, vc::VoronoiCell, offset
+)
+    @boundscheck if eachindex(offset) != OneTo(3)
+        throw(DimensionMismatch("Offset for vertex positions must be a length-3 array or tuple"))
+    end
+    dr = offset[1], offset[2], offset[3]
+    vp_raw = __vertex_positions(vc)
+    len = __get_p(vc)
+    @boundscheck if length(pos) != 3 * len
+        throw(DimensionMismatch("The length of the output array does not match the size of vertex array"))
+    end
+    for k in 0:len-1
+        @views pos[begin+3*k:begin+3*k+2] .= 0.5 .* vp_raw[4*k+1:4*k+3] .+ dr
+    end
+    return pos
+end
+
+@propagate_inbounds function vertex_positions!(
+    pos::AbstractVector, vc::CheckedVoronoiCell, offset...
+)
     if_valid(vc, isempty(pos) ? pos : empty!(pos)) do cell
-        vertex_positions!(pos, cell)
+        vertex_positions!(pos, cell, offset...)
     end
 end
 
-function vertex_positions(::Type{Vector{T}}, vc::AbstractVoronoiCell) where {T}
+@propagate_inbounds function vertex_positions(
+    ::Type{Vector{T}}, vc::AbstractVoronoiCell, offset...
+) where {T}
     pos = T[]
     if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc)
+        vertex_positions!(pos, vc, offset...)
     end
 end
 
-function vertex_positions(::Type{Vector}, vc::AbstractVoronoiCell)
+@propagate_inbounds function vertex_positions(
+    ::Type{Vector}, vc::AbstractVoronoiCell, offset...
+)
     pos = SVector{3,Float64}[]
     if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc)
+        vertex_positions!(pos, vc, offset...)
     end
 end
 
-function vertex_positions(vc::AbstractVoronoiCell)
+@propagate_inbounds function vertex_positions(vc::AbstractVoronoiCell, offset...)
     pos = SVector{3,Float64}[]
     if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc)
+        vertex_positions!(pos, vc, offset...)
     end
 end
 
-function vertex_positions(::Type{Matrix{T}}, vc::AbstractVoronoiCell) where {T}
+@propagate_inbounds function vertex_positions(
+    ::Type{Matrix{T}}, vc::AbstractVoronoiCell, offset...
+) where {T}
     len = isvalid(vc) ? __get_p(vc) : zero(Int32)
     pos = Matrix{T}(undef, 3, len)
     if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc)
+        vertex_positions!(pos, vc, offset...)
         return pos
     end
 end
 
-function vertex_positions(::Type{Matrix}, vc::AbstractVoronoiCell)
+@propagate_inbounds function vertex_positions(
+    ::Type{Matrix}, vc::AbstractVoronoiCell, offset...
+)
     pos = Float64[]
     if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc)
+        vertex_positions!(pos, vc, offset...)
     end
     return reshape(pos, 3, :)
 end
