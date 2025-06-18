@@ -1,5 +1,5 @@
 """
-    UnsafeNested{Ptr}
+    UnsafeIndexable{Ptr}
 
 Wrapper for nested pointers to allow index access. The indices are 1-based, i.e. `p[k]`
     in Julia corresponds to `p[k-1]` in C/C++

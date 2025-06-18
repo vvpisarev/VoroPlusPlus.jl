@@ -237,6 +237,15 @@ function __vertex_positions(vc::VoronoiCell)
     return unsafe_wrap(Array, pts, (4*total_vertices,); own=false)
 end
 
+"""
+    __cycle_up(nu::UnsafeIndexable, a::Integer, p::Integer)
+
+Return `vc.cycle_up(a-1, p-1) + 1` if `nu` is `UnsafeIndexable(__get_nu(vc))`.
+"""
+function __cycle_up(nu::UnsafeIndexable, a::Integer, p::Integer)
+    return a == nu[p] ? one(a) : a+one(a)
+end
+
 function __reset_edges!(
     vc::VoronoiCell,
     p=__get_p(vc),
@@ -275,6 +284,17 @@ function __test_vector(v::Vector{T}) where {T}
         pop!(v)
     catch
         error("Cannot store SVector{3,Float64} items in the vector")
+    end
+end
+
+@propagate_inbounds function translate!(vc::AbstractVoronoiCell, d)
+    @boundscheck if eachindex(d) != OneTo(3)
+        throw(DimensionMismatch("Translation vector must be a length-3 array or tuple."))
+    end
+    if_valid(vc, vc) do vc
+        @inbounds x, y, z = d[1], d[2], d[3]
+        __cxxwrap_translate!(vc, x, y, z)
+        return vc
     end
 end
 
@@ -445,43 +465,67 @@ end
     return reshape(pos, 3, :)
 end
 
-function get_neighbors!(v::Vector{<:Integer}, vc::VoronoiCell)
-    empty!(v)
-    p = __get_p(vc)
-    nu = UnsafeIndexable(__get_nu(vc))
-    ed = UnsafeIndexable(__get_ed(vc))
-    ne = UnsafeIndexable(__get_ne(vc))
-    for i in one(p)+true:p
-        nu_i = nu[i]
-        for j in OneTo(nu_i)
-            k = ed[i,j] + true
-            if k >= one(k)
-                push!(v, ne[i,j])
-                ed[i,j] = -k
-                l = __cycle_up(vc, ed[i,j + nu_i], k-true) + true
-                while true
-                    m = ed[k,l] + true
-                    ed[k,l] = -m
-                    l = __cycle_up(vc, ed[k,l+nu[k]], m-true) + true
-                    k = m
-                    k == i && break
+function get_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do vc
+        p = __get_p(vc)
+        nu = UnsafeIndexable(__get_nu(vc))
+        ed = UnsafeIndexable(__get_ed(vc))
+        ne = UnsafeIndexable(__get_ne(vc))
+        for i in one(p)+true:p
+            nu_i = nu[i]
+            for j in OneTo(nu_i)
+                k = ed[i,j] + true
+                if k > zero(k)
+                    push!(v, ne[i,j])
+                    ed[i,j] = -k
+                    l = __cycle_up(nu, ed[i,j + nu_i]+true, k)
+                    while true
+                        m = ed[k,l] + true
+                        ed[k,l] = -m
+                        l = __cycle_up(nu, ed[k,l+nu[k]]+true, m)
+                        k = m
+                        k == i && break
+                    end
                 end
             end
         end
+        __reset_edges!(vc, p, nu, ed)
+        return v
     end
-    __reset_edges!(vc, p, nu, ed)
-    return v
+end
+
+function append_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
+    if_valid(vc, v) do vc
+        p = __get_p(vc)
+        nu = UnsafeIndexable(__get_nu(vc))
+        ed = UnsafeIndexable(__get_ed(vc))
+        ne = UnsafeIndexable(__get_ne(vc))
+        for i in one(p)+true:p
+            nu_i = nu[i]
+            for j in OneTo(nu_i)
+                k = ed[i,j] + true
+                if k > zero(k)
+                    push!(v, ne[i,j])
+                    ed[i,j] = -k
+                    l = __cycle_up(nu, ed[i,j + nu_i]+true, k)
+                    while true
+                        m = ed[k,l] + true
+                        ed[k,l] = -m
+                        l = __cycle_up(nu, ed[k,l+nu[k]]+true, m)
+                        k = m
+                        k == i && break
+                    end
+                end
+            end
+        end
+        __reset_edges!(vc, p, nu, ed)
+        return v
+    end
 end
 
 function get_neighbors!(v::StdVector{Int32}, vc::VoronoiCell)
     __cxxwrap_get_neighbors!(v, vc)
     return v
-end
-
-function get_neighbors!(v::AbstractVector{<:Integer}, vc::CheckedVoronoiCell)
-    if_valid(vc, isempty(v) ? v : empty!(v)) do vc
-        get_neighbors!(v, vc)
-    end
 end
 
 function get_normals!(v::Vector, vc::VoronoiCell)
@@ -493,7 +537,7 @@ function get_normals!(v::Vector, vc::VoronoiCell)
     pts = UnsafeIndexable(__get_pts(vc))
     for i in one(p)+true:p, j in OneTo(nu[i])
         k = ed[i, j] + true
-        if k >= one(k)
+        if k > zero(k)
             __append_normal!(v, vc, ed, nu, pts, i, j, k)
         end
     end
@@ -504,7 +548,7 @@ end
 function __append_normal!(v::Vector{<:Number}, vc, ed, nu, pts, i, j, k)
     orig_len = length(v)
     ed[i, j] = -k
-    l = __cycle_up(vc, ed[i, nu[i]+j], k-true) + true
+    l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
     n_ed = one(k)
     Sxx = Syy = Szz = Sxy = Sxz = Syz = 0.0
     xc = pts[4 * k - 3]
@@ -522,7 +566,7 @@ function __append_normal!(v::Vector{<:Number}, vc, ed, nu, pts, i, j, k)
         yc += uy
         zc += uz
         push!(v, ux, uy, uz)
-        l = __cycle_up(vc, ed[k, nu[k]+l], m-true) + true
+        l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
         k = m
         k == i && break
     end
@@ -554,7 +598,7 @@ end
 
 function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
     ed[i, j] = -k
-    l = __cycle_up(vc, ed[i, nu[i]+j], k-true) + true
+    l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
     n_ed = one(k)
     Sxx = Syy = Szz = Sxy = Sxz = Syz = 0.0
     xc = pts[4 * k - 3]
@@ -572,7 +616,7 @@ function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
         yc += uy
         zc += uz
         push!(v, SVector(ux, uy, uz))
-        l = __cycle_up(vc, ed[k, nu[k]+l], m-true) + true
+        l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
         k = m
         k == i && break
     end
@@ -603,50 +647,44 @@ function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
 end
 
 function get_normals!(v::AbstractVector, vc::CheckedVoronoiCell)
-    if_valid(vc, isempty(v) ? v : empty!(v)) do vc
+    if_valid(vc, empty!(v)) do vc
         get_normals!(v, vc)
     end
 end
 
 normals(vc::AbstractVoronoiCell) = get_normals!(SVector{3,Float64}[], vc)
 
-function get_face_perimeters!(v::Vector{<:Number}, vc::VoronoiCell)
-    empty!(v)
-
-    p = __get_p(vc)
-    nu = UnsafeIndexable(__get_nu(vc))
-    ed = UnsafeIndexable(__get_ed(vc))
-    pts = UnsafeIndexable(__get_pts(vc))
-    for i in 2:p, j in OneTo(nu[i])
-        k = ed[i, j] + true
-        if k >= one(k)
-            dx = pts[(k<<2)-3] - pts[(i<<2)-3]
-            dy = pts[(k<<2)-2] - pts[(i<<2)-2]
-            dz = pts[(k<<2)-1] - pts[(i<<2)-1]
-            perim = hypot(dx, dy, dz)
-            ed[i, j] = -k
-            l = __cycle_up(vc, ed[i, nu[i] + j], k-true) + true
-            while true
-                m = ed[k, l] + true
-                dx = pts[(m<<2)-3] - pts[(k<<2)-3]
-                dy = pts[(m<<2)-2] - pts[(k<<2)-2]
-                dz = pts[(m<<2)-1] - pts[(k<<2)-1]
-                perim += hypot(dx, dy, dz)
-                ed[k, l] = -m
-                l = __cycle_up(vc, ed[k, nu[k] + l], m-true) + true
-                k = m
-                k == i && break
+function get_face_perimeters!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do vc
+        p = __get_p(vc)
+        nu = UnsafeIndexable(__get_nu(vc))
+        ed = UnsafeIndexable(__get_ed(vc))
+        pts = UnsafeIndexable(__get_pts(vc))
+        for i in one(p)+true:p, j in OneTo(nu[i])
+            k = ed[i, j] + true
+            if k > zero(k)
+                dx = pts[(k<<2)-3] - pts[(i<<2)-3]
+                dy = pts[(k<<2)-2] - pts[(i<<2)-2]
+                dz = pts[(k<<2)-1] - pts[(i<<2)-1]
+                perim = hypot(dx, dy, dz)
+                ed[i, j] = -k
+                l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
+                while true
+                    m = ed[k, l] + true
+                    dx = pts[(m<<2)-3] - pts[(k<<2)-3]
+                    dy = pts[(m<<2)-2] - pts[(k<<2)-2]
+                    dz = pts[(m<<2)-1] - pts[(k<<2)-1]
+                    perim += hypot(dx, dy, dz)
+                    ed[k, l] = -m
+                    l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
+                    k = m
+                    k == i && break
+                end
+                push!(v, 0.5 * perim)
             end
-            push!(v, 0.5 * perim)
         end
-    end
-    __reset_edges!(vc)
-    return v
-end
-
-function get_face_perimeters!(v::AbstractVector{<:Number}, vc::CheckedVoronoiCell)
-    if_valid(vc, empty!(v)) do cell
-        get_face_perimeters!(v, cell)
+        __reset_edges!(vc, p, nu, ed)
+        return v
     end
 end
 
@@ -654,6 +692,93 @@ function get_face_perimeters!(v::StdVector{Float64}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
         __cxxwrap_face_perimeters!(v, cell)
         return v
+    end
+end
+
+function face_perimeters(vc::AbstractVoronoiCell)
+    v = Float64[]
+    if_valid(vc, v) do cell
+        get_face_perimeters!(v, vc)
+    end
+end
+
+function get_face_vertices!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do vc
+        vp = 1
+        p = __get_p(vc)
+        nu = UnsafeIndexable(__get_nu(vc))
+        ed = UnsafeIndexable(__get_ed(vc))
+
+        for i in one(p)+true:p, j in OneTo(nu[i])
+            k = ed[i, j] + true
+            if k > zero(k)
+                push!(v, false)
+                push!(v, i-true)
+                ed[i, j] = -k
+                l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
+                while true
+                    push!(v, k-true)
+                    m = ed[k, l] + true
+                    ed[k, l] = -m
+                    l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
+                    k = m
+                    k == i && break
+                end
+                vn = length(v)
+                v[vp] = vn - vp
+                vp = vn + true
+            end
+        end
+        __reset_edges!(vc, p, nu, ed)
+        return v
+    end
+end
+
+function get_face_vertices!(v::StdVector{Int32}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do cell
+        __cxxwrap_face_vertices!(v, cell)
+        return v
+    end
+end
+
+function get_face_orders!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do vc
+        p = __get_p(vc)
+        nu = UnsafeIndexable(__get_nu(vc))
+        ed = UnsafeIndexable(__get_ed(vc))
+        for i in one(p)+true:p, j in OneTo(nu[i])
+            k = ed[i, j] + true
+            if k > zero(k)
+                q = one(k)
+                ed[i, j] = -k
+                l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
+                while true
+                    q += true
+                    m = ed[k, l] + true
+                    ed[k, l] = -m
+                    l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
+                    k = m
+                    k == i && break
+                end
+                push!(v, q)
+            end
+        end
+        __reset_edges!(vc, p, nu, ed)
+        return v
+    end
+end
+
+function get_face_orders!(v::StdVector{Int32}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do cell
+        __cxxwrap_face_orders!(v, vc)
+        return v
+    end
+end
+
+function face_orders(vc::AbstractVoronoiCell)
+    v = Int[]
+    if_valid(vc, v) do vc
+        get_face_orders!(v, vc)
     end
 end
 
@@ -689,7 +814,7 @@ function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
     fmt = Format("%g %g %g\n")
     for i in one(p)+true:p, j in OneTo(nu[i])
         k = ed[i, j] + true
-        if k >= one(k)
+        if k > zero(k)
             format(io, fmt, 0.5 * pts[i<<2-3] + dx, 0.5 * pts[i<<2-2] + dy, 0.5 * pts[i<<2-1] + dz)
             l, m = i, j
             while true
@@ -701,7 +826,7 @@ function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
                 m = one(m)
                 while m <= nu[l]
                     k = ed[l, m] + true
-                    if k >= one(k)
+                    if k > zero(k)
                         search_edge = true
                         break
                     end

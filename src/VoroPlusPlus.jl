@@ -37,7 +37,7 @@ module VoroPlusPlus
     export add_wall!
     export point_inside_walls
     #Defined outside type Container, as an anonymus function
-    export compute_cell!, compute_ghost_cell!
+    export compute_cell!
     export apply_walls!
 
     # Functions for Container Iterator(c_loop_all) Class
@@ -69,29 +69,23 @@ module VoroPlusPlus
     export voronoicell_box, voronoicell_tetrahedron, voronoicell_octahedron
     export reset_to_box!, reset_to_tetrahedron!, reset_to_octahedron!
     export cut_by_particle_position!
-    export volume
-    export number_of_vertices
-    export get_neighbors!
+    export translate!
+    export volume, centroid
+    export number_of_vertices, number_of_edges, number_of_faces
+    export vertex_positions, vertex_positions!
+    export get_neighbors!, append_neighbors!, neighbors
     export normals, get_normals!
-    export get_face_perimeters!
-    export number_of_edges
+    export get_face_perimeters!, face_perimeters
+    export get_face_vertices!, face_vertices
+    export get_face_orders!, face_orders
     export total_edge_distance
-    export number_of_faces, surface_area
-    export draw_gnuplot!, draw_pov, draw_pov_mesh
+    export surface_area
+    export draw_pov, draw_pov_mesh
     export root_vertex
     export check_relations, check_duplicates
     export plane_intersects
-    export centroid!, nplane, init_tetrahedron
-    export translate, plane_intersects_guess
-    export construct_relations
-    export print_edges
-    #Implemented with get and set functions
-    export vertex_positions, vertex_positions!
     # Implemented with extern C
-    export draw_gnuplot, output_vertices, output_vertex_orders
-    export output_face_perimeters, output_face_freq_table
-    export output_face_orders, output_face_areas
-    export output_normals, output_face_vertices
+    export draw_gnuplot
 
     # Functions for Containter Periodic Poly (conprdply) Class
     export Container_Periodic_Poly
@@ -108,7 +102,6 @@ module VoroPlusPlus
 
 
     # Refactoring for Ref substitution
-    export get_centroid
     export get_pos
     export find_voro_cell
 
