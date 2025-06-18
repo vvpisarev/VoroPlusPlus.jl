@@ -73,7 +73,8 @@ module VoroPlusPlus
     export number_of_vertices
     export get_neighbors!
     export normals, get_normals!
-    export max_radius_squared, number_of_edges
+    export get_face_perimeters!
+    export number_of_edges
     export total_edge_distance
     export number_of_faces, surface_area
     export draw_gnuplot!, draw_pov, draw_pov_mesh

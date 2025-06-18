@@ -610,6 +610,53 @@ end
 
 normals(vc::AbstractVoronoiCell) = get_normals!(SVector{3,Float64}[], vc)
 
+function get_face_perimeters!(v::Vector{<:Number}, vc::VoronoiCell)
+    empty!(v)
+
+    p = __get_p(vc)
+    nu = UnsafeIndexable(__get_nu(vc))
+    ed = UnsafeIndexable(__get_ed(vc))
+    pts = UnsafeIndexable(__get_pts(vc))
+    for i in 2:p, j in OneTo(nu[i])
+        k = ed[i, j] + true
+        if k >= one(k)
+            dx = pts[(k<<2)-3] - pts[(i<<2)-3]
+            dy = pts[(k<<2)-2] - pts[(i<<2)-2]
+            dz = pts[(k<<2)-1] - pts[(i<<2)-1]
+            perim = hypot(dx, dy, dz)
+            ed[i, j] = -k
+            l = __cycle_up(vc, ed[i, nu[i] + j], k-true) + true
+            while true
+                m = ed[k, l] + true
+                dx = pts[(m<<2)-3] - pts[(k<<2)-3]
+                dy = pts[(m<<2)-2] - pts[(k<<2)-2]
+                dz = pts[(m<<2)-1] - pts[(k<<2)-1]
+                perim += hypot(dx, dy, dz)
+                ed[k, l] = -m
+                l = __cycle_up(vc, ed[k, nu[k] + l], m-true) + true
+                k = m
+                k == i && break
+            end
+            push!(v, 0.5 * perim)
+        end
+    end
+    __reset_edges!(vc)
+    return v
+end
+
+function get_face_perimeters!(v::AbstractVector{<:Number}, vc::CheckedVoronoiCell)
+    if_valid(vc, empty!(v)) do cell
+        get_face_perimeters!(v, cell)
+    end
+end
+
+function get_face_perimeters!(v::StdVector{Float64}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do cell
+        __cxxwrap_face_perimeters!(v, cell)
+        return v
+    end
+end
+
 function draw_gnuplot(io::IOStream, vc::VoronoiCell, disp = (0.0, 0.0, 0.0))
     _x, _y, _z = disp
     dx, dy, dz = Float64.((_x, _y, _z))

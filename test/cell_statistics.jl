@@ -26,4 +26,6 @@
     @test vertices_vec == vertex_positions(vc, (1, 1, 1)) .- Ref(SVector(1, 1, 1))
     @test vertices_stdvec == vertex_positions!(StdVector{Float64}(), vc, (0, 0, 0))
     @test vertices_matrix == vertex_positions!(zero(vertices_matrix), vc, (1, 1, 1)) .- 1
+
+    @test get_face_perimeters!(Float64[], vc) == get_face_perimeters!(StdVector{Float64}(), vc)
 end
