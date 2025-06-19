@@ -172,6 +172,15 @@ end
     return con
 end
 
+@propagate_inbounds function add_point!(con::Container{<:RawContainerPoly}, id::Integer, pt, r::Real)
+    @boundscheck if length(pt) != 3
+        throw(ArgumentError("Can only add 3-dimensional points and radius to a polydisperse VoroPlusPlus Container"))
+    end
+    x, y, z = pt
+    add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z, r))..., Float64(r))
+    return con
+end
+
 """
     bounding_box(con::AbstractContainer)
 

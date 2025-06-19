@@ -4,8 +4,16 @@ struct Particle{T<:Union{Nothing,Float64}}
     radius::T
 end
 
-function particle(id::Integer, pos; radius::Union{Nothing,Float64}=nothing)
-    return Particle(id, pos, radius)
+function particle(id::Integer, pos; radius::Union{Nothing,Real}=nothing)
+    return particle(id, pos, radius)
+end
+
+function particle(id::Integer, pos, ::Nothing)
+    return Particle{Nothing}(id, pos, nothing)
+end
+
+function particle(id::Integer, pos, radius::Real)
+    return Particle{Float64}(id, pos, radius)
 end
 
 function Particle(con::Container{<:RawContainer}, (id, x, y, z))

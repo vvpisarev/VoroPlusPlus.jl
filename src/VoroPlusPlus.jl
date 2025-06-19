@@ -23,7 +23,8 @@ module VoroPlusPlus
 
     export bounding_box
     export periodicity
-    export add_point!, import!
+    export add_point!
+    export import_particles, import_polydisperse_particles
     export draw_particles, draw_cells_gnuplot
     export draw_particles_pov
     export print_custom!, draw_cells_pov!
@@ -135,6 +136,7 @@ module VoroPlusPlus
         include("nested_ptr.jl")
         include("container.jl")
         include("particle_info.jl")
+        include("file_import.jl")
         include("cell.jl")
         include("iteration.jl")
         #include("container_prd.jl")
