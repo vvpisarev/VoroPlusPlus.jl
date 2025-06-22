@@ -1,20 +1,20 @@
 """
-    import_particles(input; bounds, periodic=(false, false, false), ordering)
+    read_particles(input; bounds, periodic=(false, false, false), ordering)
 
-Import particle data from `input` which can be a path or I/O object.
+read particle data from `input` which can be a path or I/O object.
 # Keywords
 * `bounds`: limits of the bounding box `((xmin, ymin, zmin), (xmax, ymax, zmax))`
 * `periodic`: periodicity in each axis. Default: `(false, false, false)`
 * `ordering`: `UnspecifiedOrder()` or `InsertionOrder()`. Default: `UnspecifiedOrder()`.
 """
-function import_particles(
+function read_particles(
     input::Union{IO,AbstractString},
     ;
     bounds,
     periodic=(false, false, false),
     ordering::ContainerIterationOrder=UnspecifiedOrder(),
 )
-    eachindex(bounds) == OneTo(2) && 
+    eachindex(bounds) == OneTo(2) &&
     eachindex(bounds[1]) == eachindex(bounds[2]) == OneTo(3) ||
     throw(DimensionMismatch("Bounds must be a 2-tuple of length-3 arrays or tuples"))
 
@@ -33,7 +33,7 @@ function import_particles(
     for ln in eachline(input)
         spl = eachsplit(ln)
         id, x, y, z = parse.((Int32, Float64, Float64, Float64), spl)
-        if (px || (x_min <= x <= x_max)) && (py || (y_min <= y <= y_max)) && (pz || (z_min <= z <= z_max))
+        if (px || (ax <= x <= bx)) && (py || (ay <= y <= by)) && (pz || (az <= z <= bz))
             push!(particles, particle(id, (x, y, z)))
         else
             @warn "Particle out of bounds" x y z
@@ -48,28 +48,28 @@ function import_particles(
     con = Container(raw_con, ordering)
 
     @inbounds for p in particles
-        add_point!(con, p.id, p.pos)
+        add_point!(con, p)
     end
     return con
 end
 
 """
-    import_polydisperse_particles(input; bounds, periodic=(false, false, false), ordering)
+    read_polydisperse_particles(input; bounds, periodic=(false, false, false), ordering)
 
-Import particle data from `input` which can be a path or I/O object.
+read particle data from `input` which can be a path or I/O object.
 # Keywords
 * `bounds`: limits of the bounding box `((xmin, ymin, zmin), (xmax, ymax, zmax))`
 * `periodic`: periodicity in each axis. Default: `(false, false, false)`
 * `ordering`: `UnspecifiedOrder()` or `InsertionOrder()`. Default: `UnspecifiedOrder()`.
 """
-function import_polydisperse_particles(
+function read_polydisperse_particles(
     input::Union{IO,AbstractString},
     ;
     bounds,
     periodic=(false, false, false),
     ordering::ContainerIterationOrder=UnspecifiedOrder(),
 )
-    eachindex(bounds) == OneTo(2) && 
+    eachindex(bounds) == OneTo(2) &&
     eachindex(bounds[1]) == eachindex(bounds[2]) == OneTo(3) ||
     throw(DimensionMismatch("Bounds must be a 2-tuple of length-3 arrays or tuples"))
 
@@ -88,7 +88,7 @@ function import_polydisperse_particles(
     for ln in eachline(input)
         spl = eachsplit(ln)
         id, x, y, z, r = parse.((Int32, Float64, Float64, Float64, Float64), spl)
-        if (px || (x_min <= x <= x_max)) && (py || (y_min <= y <= y_max)) && (pz || (z_min <= z <= z_max))
+        if (px || (ax <= x <= bx)) && (py || (ay <= y <= by)) && (pz || (az <= z <= bz))
             push!(particles, particle(id, (x, y, z), r))
         else
             @warn "Particle out of bounds" x y z
@@ -103,7 +103,55 @@ function import_polydisperse_particles(
     con = Container(raw_con, ordering)
 
     @inbounds for p in particles
-        add_point!(con, p.id, p.pos, p.radius)
+        add_point!(con, p)
+    end
+    return con
+end
+
+function read_particles!(
+    con::AbstractContainer{<:RawContainer},
+    input::Union{IO,AbstractString},
+)
+    ((ax, ay, az), (bx, by, bz)) = bounding_box(con)
+    px, py, pz = periodicity(con)
+
+    particles = Particle{Nothing}[]
+    for ln in eachline(input)
+        spl = eachsplit(ln)
+        id, x, y, z = parse.((Int32, Float64, Float64, Float64), spl)
+        if (px || (ax <= x <= bx)) && (py || (ay <= y <= by)) && (pz || (az <= z <= bz))
+            push!(particles, particle(id, (x, y, z)))
+        else
+            @warn "Particle out of bounds" x y z
+        end
+    end
+
+    @inbounds for p in particles
+        add_point!(con, p)
+    end
+    return con
+end
+
+function read_particles!(
+    con::AbstractContainer{<:RawContainerPoly},
+    input::Union{IO,AbstractString},
+)
+    ((ax, ay, az), (bx, by, bz)) = bounding_box(con)
+    px, py, pz = periodicity(con)
+
+    particles = Particle{Float64}[]
+    for ln in eachline(input)
+        spl = eachsplit(ln)
+        id, x, y, z, r = parse.((Int32, Float64, Float64, Float64, Float64), spl)
+        if (px || (ax <= x <= bx)) && (py || (ay <= y <= by)) && (pz || (az <= z <= bz))
+            push!(particles, particle(id, (x, y, z), r))
+        else
+            @warn "Particle out of bounds" x y z
+        end
+    end
+
+    @inbounds for p in particles
+        add_point!(con, p)
     end
     return con
 end

@@ -21,10 +21,11 @@ module VoroPlusPlus
     export Container
     export container, polydisperse_container
 
+    export voronoi_tessellation
     export bounding_box
     export periodicity
     export add_point!
-    export import_particles, import_polydisperse_particles
+    export read_particles, read_polydisperse_particles, read_particles!
     export draw_particles, draw_cells_gnuplot
     export draw_particles_pov
     export print_custom!, draw_cells_pov!

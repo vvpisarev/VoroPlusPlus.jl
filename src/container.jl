@@ -38,6 +38,130 @@ function container(
 end
 
 """
+    voronoi_tessellation(pos; [id,] bounds, periodic=(false, false, false), ordering)
+
+Allocate space for a container of Voronoi cells and add coordinates stored in `pos`.
+# Arguments
+* `pos`: vector of positions
+# Keywords
+* `id`: use those IDs instead of indices of `pos`
+* `bounds`: limits of the bounding box `((xmin, ymin, zmin), (xmax, ymax, zmax))`
+* `periodic::NTuple{3,Bool}`: periodicity in each axis. Default: `(false, false, false)`
+* `ordering`: `UnspecifiedOrder()` or `InsertionOrder()`. Default: `UnspecifiedOrder()`.
+"""
+function voronoi_tessellation(
+    pos::AbstractVector
+    ;
+    bounds,
+    id::AbstractVector{<:Integer}=OneTo(length(pos)),
+    periodic=(false, false, false),
+    ordering::ContainerIterationOrder=UnspecifiedOrder(),
+)
+    eachindex(bounds) == OneTo(2) &&
+    eachindex(bounds[1]) == eachindex(bounds[2]) == OneTo(3) ||
+    throw(DimensionMismatch("Bounds must be a 2-tuple of length-3 arrays or tuples"))
+
+    eachindex(periodic) == OneTo(3) ||
+    throw(DimensionMismatch("Periodic flags must be a length-3 boolean array or tuple"))
+
+    eachindex(pos) == eachindex(id) ||
+    throw(DimensionMismatch("Position and ID vectors must have the same dimensions"))
+
+    ((ax, ay, az), (bx, by, bz)) = bounds
+    x_min, x_max, y_min, y_max, z_min, z_max = Float64.((ax, bx, ay, by, az, bz))
+    px, py, pz = (Bool(p) for p in periodic)
+    ppb = Int32(8)
+
+    ilscale = cbrt(length(pos) / (OPT_PART_PER_BLOCK * dx * dy * dz))
+    nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
+
+    rcon = RawContainer(
+        x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz, px, py, pz, ppb,
+    )
+    con = Container(rcon, ordering)
+
+    for (pid, p) in zip(id, pos)
+        add_point!(con, pid, p)
+    end
+    return con
+end
+
+function voronoi_tessellation(
+    pos::AbstractVector{T}
+    ;
+    bounds,
+    id::AbstractVector{<:Integer}=OneTo(length(pos)),
+    periodic=(false, false, false),
+    ordering::ContainerIterationOrder=UnspecifiedOrder(),
+) where {T<:Union{SVector{3,<:Real},NTuple{3,Real}}}
+    eachindex(bounds) == OneTo(2) &&
+    eachindex(bounds[1]) == eachindex(bounds[2]) == OneTo(3) ||
+    throw(DimensionMismatch("Bounds must be a 2-tuple of length-3 arrays or tuples"))
+
+    eachindex(periodic) == OneTo(3) ||
+    throw(DimensionMismatch("Periodic flags must be a length-3 boolean array or tuple"))
+
+    eachindex(pos) == eachindex(id) ||
+    throw(DimensionMismatch("Position and ID vectors must have the same dimensions"))
+
+    ((ax, ay, az), (bx, by, bz)) = bounds
+    x_min, x_max, y_min, y_max, z_min, z_max = Float64.((ax, bx, ay, by, az, bz))
+    px, py, pz = (Bool(p) for p in periodic)
+    ppb = Int32(8)
+
+    ilscale = cbrt(length(pos) / (OPT_PART_PER_BLOCK * dx * dy * dz))
+    nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
+
+    rcon = RawContainer(
+        x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz, px, py, pz, ppb,
+    )
+    con = Container(rcon, ordering)
+
+    @inbounds for (pid, p) in zip(id, pos)
+        add_point!(con, pid, p)
+    end
+    return con
+end
+
+function voronoi_tessellation(
+    pos::AbstractVector{<:Number}
+    ;
+    bounds,
+    id::AbstractVector{<:Integer}=eachindex(1:3:length(pos)),
+    periodic=(false, false, false),
+    ordering::ContainerIterationOrder=UnspecifiedOrder(),
+)
+    eachindex(bounds) == OneTo(2) &&
+    eachindex(bounds[1]) == eachindex(bounds[2]) == OneTo(3) ||
+    throw(DimensionMismatch("Bounds must be a 2-tuple of length-3 arrays or tuples"))
+
+    eachindex(periodic) == OneTo(3) ||
+    throw(DimensionMismatch("Periodic flags must be a length-3 boolean array or tuple"))
+
+    length(pos) == length(id) * 3 ||
+    throw(DimensionMismatch("Position and ID vectors must have the same dimensions"))
+
+    ((ax, ay, az), (bx, by, bz)) = bounds
+    x_min, x_max, y_min, y_max, z_min, z_max = Float64.((ax, bx, ay, by, az, bz))
+    px, py, pz = (Bool(p) for p in periodic)
+    ppb = Int32(8)
+
+    ilscale = cbrt(length(pos) / (OPT_PART_PER_BLOCK * dx * dy * dz))
+    nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
+
+    rcon = RawContainer(
+        x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz, px, py, pz, ppb,
+    )
+    con = Container(rcon, ordering)
+
+    @inbounds for (k, pid) in enumerate(id)
+        x, y, z = @views pos[begin+k-1:begin+k+2]
+        add_point!(con, pid, (x, y, z))
+    end
+    return con
+end
+
+"""
     polydisperse_container(; bounds, nblocks, periodic=(false, false, false), particles_per_block=8, ordering)
 
 Allocate space for a container of Voronoi cells for polydisperse particles.
@@ -154,30 +278,32 @@ Add a point to a container `con`.
 * `(x, y, z)::Real`: coordinates of the particle to insert
 * `r::Real`: radius (only for polydisperse containers)
 """
-@propagate_inbounds function add_point!(con::Container{<:RawContainer}, id::Integer, pt)
-    @boundscheck if length(pt) != 3
+@propagate_inbounds function add_point!(con::Container{<:RawContainer}, id::Integer, pos)
+    @boundscheck if length(pos) != 3
         throw(ArgumentError("Can only add 3-dimensional points to a VoroPlusPlus Container"))
     end
-    x, y, z = pt
+    x, y, z = pos
     __add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z))...)
     return con
 end
 
-@propagate_inbounds function add_point!(con::Container{<:RawContainerPoly}, id::Integer, pt)
-    @boundscheck if length(pt) != 4
+@propagate_inbounds function add_point!(con::Container{<:RawContainerPoly}, id::Integer, posr)
+    @boundscheck if length(posr) != 4
         throw(ArgumentError("Can only add 3-dimensional points and radius to a polydisperse VoroPlusPlus Container"))
     end
-    x, y, z, r = pt
+    x, y, z, r = posr
     add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z, r))...)
     return con
 end
 
-@propagate_inbounds function add_point!(con::Container{<:RawContainerPoly}, id::Integer, pt, r::Real)
-    @boundscheck if length(pt) != 3
+@propagate_inbounds function add_point!(
+    con::Container{<:RawContainerPoly}, id::Integer, pos, r::Real
+)
+    @boundscheck if length(pos) != 3
         throw(ArgumentError("Can only add 3-dimensional points and radius to a polydisperse VoroPlusPlus Container"))
     end
-    x, y, z = pt
-    add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z, r))..., Float64(r))
+    x, y, z = pos
+    add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z, r))...)
     return con
 end
 
