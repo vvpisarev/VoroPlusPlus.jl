@@ -22,8 +22,7 @@ module VoroPlusPlus
     export container, polydisperse_container
 
     export voronoi_tessellation
-    export bounding_box
-    export periodicity
+    export bounding_box, periodicity, ordering
     export add_point!
     export read_particles, read_polydisperse_particles, read_particles!
     export draw_particles, draw_cells_gnuplot
@@ -42,29 +41,12 @@ module VoroPlusPlus
     export compute_cell!
     export apply_walls!
 
-    # Functions for Container Iterator(c_loop_all) Class
-    export Container_Iterator
-    export start!, next!, pos
-    export ci_x, ci_y, ci_z, ci_pid
-
     # Functions for Container Iterator_Subset(c_loop_subset) Class
     export Container_Iterator_Subset
     export cis_start, cis_next, cis_pos
     export ci_x, ci_y, ci_z, ci_pid
     export cis_setup_sphere, cis_setup_box, cis_setup_intbox
     export cis_x, cis_y, cis_z, cis_pid
-
-    # Functions for Container Iterator_Order(c_loop_order) Class
-    export Container_Iterator_Order
-    export cio_start, cio_next, cio_pos
-    export cio_x, cio_y, cio_z, cio_pid
-
-    # Functions for Container_Poly Class
-    export Container_Poly
-    export conp_add_point!, conp_import!
-    export conp_draw_particles, conp_draw_cells_gnuplot
-    export conp_draw_particles_pov
-    export conp_print_custom!, conp_draw_cells_pov!
 
     # Functions for VoronoiCell Class
     export VoronoiCell
@@ -90,22 +72,17 @@ module VoroPlusPlus
     export draw_gnuplot
 
     # Functions for Containter Periodic Poly (conprdply) Class
-    export Container_Periodic_Poly
-    export conprdply_add_point!
-    export conprdply_compute_ghost_cell
-    export conprdply_draw_particles
-    export conprdply_draw_cells_gnuplot
-    export conprdply_draw_domain_gnuplot
+    # export Container_Periodic_Poly
+    # export conprdply_add_point!
+    # export conprdply_compute_ghost_cell
+    # export conprdply_draw_particles
+    # export conprdply_draw_cells_gnuplot
+    # export conprdply_draw_domain_gnuplot
 
     # Functions for Wall_Sphere Class
-    export Wall_Sphere
-    export point_inside_wph
-    export cut_cell_vc, cut_cell_vcn
-
-
-    # Refactoring for Ref substitution
-    export get_pos
-    export find_voro_cell
+    # export Wall_Sphere
+    # export point_inside_wph
+    # export cut_cell_vc, cut_cell_vcn
 
 
     ####################################################3
@@ -140,6 +117,7 @@ module VoroPlusPlus
         include("file_import.jl")
         include("cell.jl")
         include("iteration.jl")
+        include("container_iterators.jl")
         #include("container_prd.jl")
 
         function __init__()

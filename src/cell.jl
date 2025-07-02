@@ -208,13 +208,14 @@ function cut_by_particle_position!(vc::VoronoiCell, pos)
 end
 
 function compute_cell!(
-    vc::VoronoiCell, con::AbstractRawContainer, itr
+    vc::VoronoiCell, con::AbstractContainer, itr
 )
-    cell_is_valid = convert(Bool, __cxxwrap_compute_cell!(vc, con, itr))
+    raw_con = __raw(con)
+    cell_is_valid = convert(Bool, __cxxwrap_compute_cell!(vc, raw_con, itr))
     return CheckedVoronoiCell(vc, cell_is_valid)
 end
 
-function compute_cell!(vc::CheckedVoronoiCell, con::AbstractRawContainer, itr)
+function compute_cell!(vc::CheckedVoronoiCell, con::AbstractContainer, itr)
     compute_cell!(vc.cell, con, itr)
 end
 

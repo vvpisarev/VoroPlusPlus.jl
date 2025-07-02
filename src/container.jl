@@ -201,6 +201,9 @@ Return the underlying raw container. For raw containers, return the container it
 __raw(con::AbstractRawContainer) = con
 __raw(con::Container) = con.con
 
+__raw_type(::Type{Container{C,O}}) where {C,O} = C
+__raw_type(::Type{C}) where {C<:AbstractRawContainer} = C
+
 @doc """
     __cxxwrap_put!(con::RawContainer[, ord::InsertionOrder], id::Int32, x::Float64, y::Float64, z::Float64)
 
@@ -341,3 +344,7 @@ Return periodicity flags in X, Y, Z directions.
 function periodicity(con::AbstractContainer)
     return Bool.(__cxxwrap_periodic(__raw(con)))
 end
+
+ordering(con::Container) = con.ord
+
+ordering(con::AbstractRawContainer) = UnspecifiedOrder()
