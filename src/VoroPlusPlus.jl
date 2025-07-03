@@ -117,7 +117,6 @@ module VoroPlusPlus
         include("file_import.jl")
         include("cell.jl")
         include("iteration.jl")
-        include("container_iterators.jl")
         #include("container_prd.jl")
 
         function __init__()

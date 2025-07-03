@@ -109,7 +109,7 @@ function read_polydisperse_particles(
 end
 
 function read_particles!(
-    con::AbstractContainer{<:RawContainer},
+    con::Container{<:RawContainer},
     input::Union{IO,AbstractString},
 )
     ((ax, ay, az), (bx, by, bz)) = bounding_box(con)
@@ -133,7 +133,7 @@ function read_particles!(
 end
 
 function read_particles!(
-    con::AbstractContainer{<:RawContainerPoly},
+    con::Container{<:RawContainerPoly},
     input::Union{IO,AbstractString},
 )
     ((ax, ay, az), (bx, by, bz)) = bounding_box(con)

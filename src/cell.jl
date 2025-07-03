@@ -33,7 +33,8 @@ end
 function CheckedVoronoiCell(con::AbstractContainer, itor)
     raw_con = __raw(con)
     vc = VoronoiCell(raw_con)
-    return compute_cell!(vc, raw_con, itor)
+    valid = __cxxwrap_compute_cell!(vc, raw_con, itor)
+    return CheckedVoronoiCell(vc, valid)
 end
 
 __raw(vc::CheckedVoronoiCell) = vc.cell
@@ -211,7 +212,7 @@ function compute_cell!(
     vc::VoronoiCell, con::AbstractContainer, itr
 )
     raw_con = __raw(con)
-    cell_is_valid = convert(Bool, __cxxwrap_compute_cell!(vc, raw_con, itr))
+    cell_is_valid = __cxxwrap_compute_cell!(vc, raw_con, itr)
     return CheckedVoronoiCell(vc, cell_is_valid)
 end
 

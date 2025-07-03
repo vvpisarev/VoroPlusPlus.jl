@@ -33,6 +33,8 @@ end
 
 struct Unsafe{C<:AbstractContainer}<:AbstractContainer
     container::C
+
+    Unsafe{C}(con::C) where {C<:AbstractContainer} = new{C}(con)
 end
 
 function Unsafe(con::Unsafe)

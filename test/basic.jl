@@ -197,39 +197,23 @@ end
         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
         nblocks=(n_x, n_y, n_z),
         periodic=(false, false, false),
-        particles_per_block=8,
+        ordering=VoroPlusPlus.InsertionOrder()
     )
 
     @test bounding_box(con) == ((x_min, y_min, z_min), (x_max, y_max, z_max))
     @test periodicity(con) == (false, false, false)
 
-    #@test VoroPlusPlus.import!(con, "./data/pack_ten_cube") === nothing
-    #@test VoroPlusPlus.draw_cells_gnuplot(con, "pack_ten_cube.gnu") === nothing
+    @test read_particles!(con, "./data/pack_ten_cube") === con
+
+    con_ = read_particles(
+        "./data/pack_ten_cube"
+        ;
+        bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
+        periodic=(false, false, false),
+        ordering=VoroPlusPlus.InsertionOrder()
+    )
+
+    @test all(zip(con, con_)) do ((p1, cell1), (p2, cell2))
+        p1 == p2 && volume(cell1) == volume(cell2)
+    end
 end
-
-# @testset "Convex Test" begin
-#     v = VoronoiCell()
-#     @test v isa VoronoiCell
-
-#     @test init_l_shape!(v) === nothing
-
-#     @test draw_gnuplot(v, 0, 0, 0, "single_cell.gnu") === nothing
-#     lp = ls = -1
-#     l = u = 1e-20
-
-#     @test cut_by_particle_position!(v, -1, 3, 0, 0.5)
-#     @test draw_gnuplot(v, 0, 0, 0, "single_cell2.gnu") === nothing
-#     @test cut_by_particle_position!(v, -1, 3, 0.4, 0.53);
-#     @test cut_by_particle_position!(v, -1, 3, -0.4, 0.54);
-#     print("cr")
-#     check_relations(v)
-#     check_duplicates(v)
-#     print("fi")
-
-#     suc = true
-
-#     fmt = Format("%s lp=%d ls=%d l=%g u=%g up=%d\n")
-#     format(stdout, fmt, suc ? "True" : "False", lp, ls, l, u, root_vertex(v))
-
-#     @test draw_gnuplot(v, 0, 0, 0, "single_cell3.gnu") === nothing
-# end
