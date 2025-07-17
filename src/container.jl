@@ -1,3 +1,9 @@
+"""
+    UnspecifiedOrder
+
+A singleton type to denote the lack of a specific order of iteration over a Voronoi
+    container.
+"""
 struct UnspecifiedOrder<:ContainerIterationOrder end
 
 mutable struct Container{C<:AbstractRawContainer, O<:ContainerIterationOrder}<:AbstractContainer

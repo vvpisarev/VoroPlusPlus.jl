@@ -39,3 +39,11 @@ RawContainer
 Wrapper for Voro++ `container_poly` type.
 """
 RawContainerPoly
+
+"""
+    InsertionOrder()
+
+A data structure to store the order of inserted particles into a Voronoi container. Wraps
+    `voro::particle_order` type.
+"""
+InsertionOrder
