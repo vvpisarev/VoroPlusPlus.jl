@@ -301,7 +301,7 @@ end
         throw(ArgumentError("Can only add 3-dimensional points and radius to a polydisperse VoroPlusPlus Container"))
     end
     x, y, z, r = posr
-    add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z, r))...)
+    __add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z, r))...)
     return con
 end
 
@@ -312,7 +312,7 @@ end
         throw(ArgumentError("Can only add 3-dimensional points and radius to a polydisperse VoroPlusPlus Container"))
     end
     x, y, z = pos
-    add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z, r))...)
+    __add_point!(con.con, con.ord, Int32(id), Float64.((x, y, z, r))...)
     return con
 end
 
