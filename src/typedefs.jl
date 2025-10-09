@@ -27,6 +27,13 @@ Abstract type for storing Voronoi cell data.
 abstract type AbstractVoronoiCell end
 
 """
+    AbstractWall
+
+Abstract type for wall classes.
+"""
+abstract type AbstractWall end
+
+"""
     RawContainer
 
 Wrapper for Voro++ `container` type.

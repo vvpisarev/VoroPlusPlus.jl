@@ -7,14 +7,10 @@ module VoroPlusPlus
     using StaticArrays
 
     # Functions for Wall Class
-    export Wall
-    export point_inside
-
-    # Functios for Wall_List Class
-    export Wall_List
-    export add_wall
-
-    # ordering
+    export AbstractWall
+    export wall_plane, wall_cylinder, wall_cone, wall_sphere
+    export add_wall!
+    export point_inside, point_inside_walls
 
     # Functions for Container Class
     export AbstractContainer
@@ -35,11 +31,9 @@ module VoroPlusPlus
     export initialize_search, frac_pos
     export region_index, draw_domain_gnuplot
     export draw_domain_pov, total_particles
-    export add_wall!
-    export point_inside_walls
     #Defined outside type Container, as an anonymus function
     export compute_cell!
-    export apply_walls!
+    #export apply_walls!
 
     # Functions for Container Iterator_Subset(c_loop_subset) Class
     export Container_Iterator_Subset
@@ -120,6 +114,7 @@ module VoroPlusPlus
         include("file_import.jl")
         include("cell.jl")
         include("iteration.jl")
+        include("walls.jl")
         #include("container_prd.jl")
 
         function __init__()
