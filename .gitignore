@@ -34,3 +34,5 @@ test/*.vec
 test/*.vol
 test/pack*.*
 test/pack*
+
+.vscode
