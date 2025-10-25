@@ -5,6 +5,7 @@ module VoroPlusPlus
     using Preferences
     using Printf: Format, format
     using StaticArrays
+    using voropp_wrapper_jll
 
     # Functions for Wall Class
     export AbstractWall
@@ -81,7 +82,7 @@ module VoroPlusPlus
 
     ####################################################3
 
-    function set_wrapper_path(path::AbstractString="/usr/lib")
+    function set_wrapper_path(path::AbstractString=voropp_wrapper_jll.libvoropp_wrap_path)
         # Set it in our runtime values, as well as saving it to disk
         if isfile(path) && endswith(path, "libvoro++wrap.so")
             @set_preferences!("VORO_JL_WRAPPER_PATH" => path)
@@ -101,7 +102,11 @@ module VoroPlusPlus
         end
     end
 
-    const VORO_JL_WRAPPER_PATH = @load_preference("VORO_JL_WRAPPER_PATH")
+    @static if @load_preference("VORO_JL_WRAPPER_PATH") !== nothing
+        const VORO_JL_WRAPPER_PATH = @load_preference("VORO_JL_WRAPPER_PATH")
+    else
+        const VORO_JL_WRAPPER_PATH = voropp_wrapper_jll.libvoropp_wrap_path
+    end
 
     @static if VORO_JL_WRAPPER_PATH !== nothing
         include("typedefs.jl")
