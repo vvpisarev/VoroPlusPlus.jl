@@ -45,6 +45,12 @@ function wall_plane(nrm, distance::Real, wid::Integer)
     return WallPlane(a, b, c, d, convert(Int32, wid))
 end
 
+"""
+    wall_sphere((x0, y0, z0), r[, wall_id=-99])
+
+Define a spherical wall described by the equation `(x-x0)^2 + (y-y0)^2 + (z-z0)^2 = r^2`.
+    The inside of the wall is defined as `(x-x0)^2 + (y-y0)^2 + (z-z0)^2 < r^2`.
+"""
 function wall_sphere(center, radius::Real)
     x, y, z = center
     xc, yc, zc = Float64.((x, y, z))
@@ -59,6 +65,13 @@ function wall_sphere(center, radius::Real, wid::Integer)
     return WallSphere(xc, yc, zc, r, wid)
 end
 
+
+"""
+    wall_cylinder(origin, axis, r[, wall_id=-99])
+
+Define a cylindrical wall described by a point `origin` on the axis, the direction `axis`
+    and the cylinder radius `r`.
+"""
 function wall_cylinder(origin, axis, radius::Real)
     x, y, z = origin
     xc, yc, zc = Float64.((x, y, z))
@@ -77,6 +90,12 @@ function wall_cylinder(origin, axis, radius::Real, wid::Integer)
     return WallSphere(xc, yc, zc, xa, ya, za, r, wid)
 end
 
+"""
+    wall_cone(apex, axis, angle[, wall_id=-99])
+
+Define a conical wall described by the point `apex`, the direction `axis`
+    and the angle (in radians) measured from the axis.
+"""
 function wall_cone(apex, axis, angle::Real)
     x, y, z = apex
     xc, yc, zc = Float64.((x, y, z))

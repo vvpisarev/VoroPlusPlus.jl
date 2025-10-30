@@ -343,7 +343,7 @@ function Base.empty!(con::Container{C,O}) where {C,O}
 end
 
 """
-   periodicity(con::AbstractContainer)
+    periodicity(con::AbstractContainer)
 
 Return periodicity flags in X, Y, Z directions.
 """

@@ -14,11 +14,11 @@ Create a new Voronoi cell with `max_r_sq` as maximum squared radius.
 VoronoiCell(::Float64)
 
 """
-    VoronoiCell(con::AbstractRawContainer)
+    VoronoiCell(con::Container)
 
 Create a new Voronoi cell based on the size of `con`.
 """
-VoronoiCell(::AbstractRawContainer)
+VoronoiCell(con::Container) = VoronoiCell(__raw(con))
 
 """
     CheckedVoronoiCell
@@ -143,6 +143,11 @@ function voronoicell_box((xlo, ylo, zlo), (xhi, yhi, zhi))
     return v
 end
 
+"""
+    voronoicell_tetrahedron(v1, v2, v3, v4)
+
+Create a Voronoi cell initialized as tetrahedron with given vertices.
+"""
 function voronoicell_tetrahedron((u1, v1, w1), (u2, v2, w2), (u3, v3, w3), (u4, v4, w4))
     x1, y1, z1 = Float64.((u1, v1, w1))
     x2, y2, z2 = Float64.((u2, v2, w2))
@@ -156,6 +161,12 @@ function voronoicell_tetrahedron((u1, v1, w1), (u2, v2, w2), (u3, v3, w3), (u4, 
     return v
 end
 
+"""
+    voronoicell_octahedron(r::Real)
+
+Create a Voronoi cell shaped as octahedron with vertices at `(r, 0, 0)`, `(-r, 0, 0)`,
+    `(0, r, 0)`, `(0, -r, 0)`, `(0, 0, r)`, and `(0, 0, -r)`.
+"""
 function voronoicell_octahedron(r::Real)
     d = Float64(r)
     v = VoronoiCell(4*d*d)
@@ -163,12 +174,22 @@ function voronoicell_octahedron(r::Real)
     return v
 end
 
+"""
+    reset_to_box!(vc::VoronoiCell, (u1, v1, w1), (u2, v2, w2))
+
+Reshape a Voronoi cell into a rectangular cuboid with provided lower and higher bounds.
+"""
 function reset_to_box!(vc::VoronoiCell, (u1, v1, w1), (u2, v2, w2))
     xmin, xmax, ymin, ymax, zmin, zmax = Float64.((u1, u2, v1, v2, w1, w2))
     __cxxwrap_init!(vc, xmin, xmax, ymin, ymax, zmin, zmax)
     return vc
 end
 
+"""
+    reset_to_tetrahedron!(vc::VoronoiCell, v1, v2, v3, v4)
+
+Reshape a Voronoi cell into a tetrahedron with given vertices.
+"""
 function reset_to_tetrahedron!(
     vc::VoronoiCell,
     (u1, v1, w1),
@@ -184,6 +205,13 @@ function reset_to_tetrahedron!(
     return vc
 end
 
+
+"""
+    reset_to_octahedron!(vc::VoronoiCell, r::Real)
+
+Reshape a Voronoi cell into an octahedron with vertices at `(r, 0, 0)`, `(-r, 0, 0)`,
+    `(0, r, 0)`, `(0, -r, 0)`, `(0, 0, r)`, and `(0, 0, -r)`.
+"""
 function reset_to_octahedron!(vc::VoronoiCell, r::Real)
     d = Float64(r)
     __cxxwrap_init_octahedron!(vc, d)
@@ -289,6 +317,11 @@ function __test_vector(v::Vector{T}) where {T}
     end
 end
 
+"""
+    translate!(vc::AbstractVoronoiCell, d)
+
+Translates the vertices of the Voronoi cell by a given vector.
+"""
 @propagate_inbounds function translate!(vc::AbstractVoronoiCell, d)
     @boundscheck if eachindex(d) != OneTo(3)
         throw(DimensionMismatch("Translation vector must be a length-3 array or tuple."))
@@ -300,6 +333,11 @@ end
     end
 end
 
+"""
+    number_of_vertices(vc::VoronoiCell)
+
+Return the number of vertices of the cell.
+"""
 function number_of_vertices(vc::VoronoiCell)
     return __get_p(vc)
 end
@@ -333,6 +371,16 @@ function vertex_positions!(pos::Vector{<:Number}, vc::VoronoiCell)
     return pos
 end
 
+"""
+    vertex_positions!(pos::AbstractVector, vc::AbstractVoronoiCell[, offset])
+
+Fill vector `pos` with the positions of cell vertices, optionally shifted by `offset`.
+
+If `eltype(pos)` is numeric, then 3 vector elements are stored per vertex. Otherwise, 1
+    vector is stored per vertex.
+
+`offset` must be a length-3 array or tuple.
+"""
 @propagate_inbounds function vertex_positions!(
     pos::AbstractVector{<:Number}, vc::VoronoiCell, offset
 )
@@ -439,6 +487,15 @@ end
     end
 end
 
+"""
+    vertex_positions(vc::AbstractVoronoiCell[, offset])
+
+Return the positions of cell vertices, optionally shifted by `offset`.
+
+The returned object is a `Vector{SVector{3,Float64}}`.
+
+`offset` must be a length-3 array or tuple.
+"""
 @propagate_inbounds function vertex_positions(vc::AbstractVoronoiCell, offset...)
     pos = SVector{3,Float64}[]
     if_valid(vc, pos) do vc
@@ -446,6 +503,14 @@ end
     end
 end
 
+"""
+    vertex_positions(::Type{<:Matrix}, vc::AbstractVoronoiCell[, offset])
+
+Return the positions of cell vertices, optionally shifted by `offset`, as a 3xN numeric
+    matrix.
+
+`offset` must be a length-3 array or tuple.
+"""
 @propagate_inbounds function vertex_positions(
     ::Type{Matrix{T}}, vc::AbstractVoronoiCell, offset...
 ) where {T}
@@ -467,6 +532,11 @@ end
     return reshape(pos, 3, :)
 end
 
+"""
+    get_neighbors!(v::AbstractVector, vc::AbstractVoronoiCell)
+
+Fill `v` with neighbor IDs of the cell `vc`.
+"""
 function get_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do vc
         p = __get_p(vc)
@@ -530,6 +600,16 @@ function get_neighbors!(v::StdVector{Int32}, vc::VoronoiCell)
     return v
 end
 
+"""
+    get_normals!(v::Vector, vc::AbstractVoronoiCell)
+
+Fill `v` with the normals to the faces of `vc`.
+
+If `v` is a numeric vector, then normals are stored as 3 consecutive items. Otherwise,
+    normals are stored as `SVector{3,Float64}`.
+"""
+get_normals!
+
 function get_normals!(v::Vector, vc::VoronoiCell)
     empty!(v)
     __test_vector(v)
@@ -552,7 +632,7 @@ function __append_normal!(v::Vector{<:Number}, vc, ed, nu, pts, i, j, k)
     ed[i, j] = -k
     l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
     n_ed = one(k)
-    Sxx = Syy = Szz = Sxy = Sxz = Syz = 0.0
+    S = zero(SMatrix{3, 3, Float64, 9})
     xc = pts[4 * k - 3]
     yc = pts[4 * k - 2]
     zc = pts[4 * k - 1]
@@ -575,17 +655,11 @@ function __append_normal!(v::Vector{<:Number}, vc, ed, nu, pts, i, j, k)
     com = SVector(xc, yc, zc) / n_ed
     # Prepare gyration tensor
     for p in orig_len:3:lastindex(v)-3
-        ux, uy, uz = (v[p+1], v[p+2], v[p+3]) .- com
-        Sxx += ux * ux
-        Syy += uy * uy
-        Szz += uz * uz
-        Sxy += ux * uy
-        Sxz += ux * uz
-        Syz += uy * uz
+        u = SVector(v[p+1], v[p+2], v[p+3]) - com
+        S += u .* u'
     end
     resize!(v, orig_len)
-    S = Symmetric(SMatrix{3,3,Float64,9}(Sxx, Sxy, Sxz, Sxy, Syy, Syz, Sxz, Syz, Szz))
-    vals, vecs = eigen(S / n_ed)
+    vals, vecs = eigen(Symmetric(S) / n_ed)
     if 1.0 - vals[1] / vals[2] > eps() * 10
         nrm = vecs[:, 1]
         if dot(nrm, com) < 0
@@ -602,7 +676,7 @@ function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
     ed[i, j] = -k
     l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
     n_ed = one(k)
-    Sxx = Syy = Szz = Sxy = Sxz = Syz = 0.0
+    S = zero(SMatrix{3, 3, Float64, 9})
     xc = pts[4 * k - 3]
     yc = pts[4 * k - 2]
     zc = pts[4 * k - 1]
@@ -625,17 +699,12 @@ function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
     com = SVector(xc, yc, zc) / n_ed
     # Prepare gyration tensor
     for p in lastindex(v)-n_ed+1:lastindex(v)
-        ux, uy, uz = v[p] .- com
-        Sxx += ux * ux
-        Syy += uy * uy
-        Szz += uz * uz
-        Sxy += ux * uy
-        Sxz += ux * uz
-        Syz += uy * uz
+        vpx, vpy, vpz = v[p]
+        u = SVector(vpx, vpy, vpz) - com
+        S += u .* u'
     end
     resize!(v, length(v) - n_ed)
-    S = Symmetric(SMatrix{3,3,Float64,9}(Sxx, Sxy, Sxz, Sxy, Syy, Syz, Sxz, Syz, Szz))
-    vals, vecs = eigen(S / n_ed)
+    vals, vecs = eigen(Symmetric(S) / n_ed)
     if 1.0 - vals[1] / vals[2] > eps() * 10
         nrm = vecs[:, 1]
         if dot(nrm, com) < 0
@@ -654,6 +723,11 @@ function get_normals!(v::AbstractVector, vc::CheckedVoronoiCell)
     end
 end
 
+"""
+    normals(vc::AbstractVoronoiCell)
+
+Return the normals to the faces of `vc` as `Vector{SVector{3,Float64}}`.
+"""
 normals(vc::AbstractVoronoiCell) = get_normals!(SVector{3,Float64}[], vc)
 
 function get_face_perimeters!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
@@ -806,7 +880,12 @@ function draw_gnuplot(path::AbstractString, vc::VoronoiCell, disp = (0.0, 0.0, 0
     # draw_gnuplot(vc, dx, dy, dz, path)
 end
 
+"""
+    draw_gnuplot(output, vc::VoronoiCell, disp=(0.0, 0.0, 0.0))
 
+Output cell Outputs the edges of the Voronoi cell in gnuplot format to an output stream or
+    to a file given by name. `disp` is a displacement to add to cell position.
+"""
 function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
     p = __get_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
