@@ -83,20 +83,22 @@ module VoroPlusPlus
     ####################################################3
 
     function set_wrapper_path(path::AbstractString=voropp_wrapper_jll.libvoropp_wrap_path)
+        lib_suffix = Sys.iswindows() ? ".dll" : ".so"
+        libfile = "libvoro++wrap" * lib_suffix
         # Set it in our runtime values, as well as saving it to disk
-        if isfile(path) && endswith(path, "libvoro++wrap.so")
+        if isfile(path) && endswith(path, libfile)
             @set_preferences!("VORO_JL_WRAPPER_PATH" => path)
             @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
-        elseif isfile(joinpath(path, "libvoro++wrap.so"))
-            @set_preferences!("VORO_JL_WRAPPER_PATH" => joinpath(path, "libvoro++wrap.so"))
+        elseif isfile(joinpath(path, libfile))
+            @set_preferences!("VORO_JL_WRAPPER_PATH" => joinpath(path, libfile))
             @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
-        elseif isfile(joinpath(path, "lib", "libvoro++wrap.so"))
-            @set_preferences!("VORO_JL_WRAPPER_PATH" => joinpath(path, "lib", "libvoro++wrap.so"))
+        elseif isfile(joinpath(path, "lib", libfile))
+            @set_preferences!("VORO_JL_WRAPPER_PATH" => joinpath(path, "lib", libfile))
             @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
         else
             mesg = "Could not find valid wrapper library at " *
-                    "$(joinpath(path, "libvoro++wrap.so")) or " *
-                    "$(joinpath(path, "lib", "libvoro++wrap.so")). " *
+                    "$(joinpath(path, libfile)) or " *
+                    "$(joinpath(path, "lib", libfile)). " *
                     "The setting has no effect."
             @warn mesg
         end
