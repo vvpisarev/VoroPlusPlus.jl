@@ -17,8 +17,13 @@
     end
 
     @test reinterpret(Float64, normals(vc)) == get_normals!(Float64[], vc)
-    @info normals(vc)
-
+    @test isapprox(
+        normals(vc),
+        SVector{3,Float64}[
+            (0,0,-1), (1,-0,0), (0,-1,0), (-1,-0,-0), (0,1,-0), (0.707107,0.707107,-0), (0,0,1)
+        ];
+        rtol=1e-4
+    )
     @test eachcol(vertices_matrix) == vertices_vec
     @test reinterpret(Float64, vertices_vec) == vertices_stdvec
     @test reinterpret(Float64, vertices_vec) == vertex_positions!(Float64[], vc)
@@ -31,5 +36,10 @@
     @test get_face_vertices!(Int[], vc) == get_face_vertices!(StdVector{Int32}(), vc)
     @info get_face_vertices!(Int[], vc)
     @test get_face_orders!(Int[], vc) == get_face_orders!(StdVector{Int32}(), vc)
+
+    @test face_orders(vc) == [5, 4, 4, 4, 4, 4, 5]
+    #@test face_areas(vc) ≈ [3.5, 2, 4, 4, 2, 2.82843, 3.5]
+
+    @test isapprox(centroid(vc), [-2/21, -2/21, 0])
     #@info get_face_orders!(Int[], vc)
 end

@@ -24,13 +24,14 @@ module VoroPlusPlus
     export read_particles, read_polydisperse_particles, read_particles!
     export draw_particles, draw_cells_gnuplot
     export draw_particles_pov
-    export print_custom!, draw_cells_pov!
-    export find_voronoi_cell
-    export clear, compute_all_cells
-    export sum_cell_volumes, point_inside!
-    export region_count
-    export initialize_search, frac_pos
-    export region_index, draw_domain_gnuplot
+    export eachparticle, eachcell
+    #export print_custom!, draw_cells_pov!
+    #export find_voronoi_cell
+    #export clear, compute_all_cells
+    #export sum_cell_volumes, point_inside!
+    #export region_count
+    #export initialize_search, frac_pos
+    #export region_index, draw_domain_gnuplot
     export draw_domain_pov, total_particles
     #Defined outside type Container, as an anonymus function
     export compute_cell!

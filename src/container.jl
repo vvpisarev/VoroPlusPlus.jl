@@ -18,16 +18,16 @@ Allocate space for a container of Voronoi cells.
 # Keywords
 * `bounds`: limits of the bounding box `((xmin, ymin, zmin), (xmax, ymax, zmax))`
 * `nblocks`: numbers of computation blocks along each axis
-* `periodic::NTuple{3,Bool}`: periodicity in each axis. Default: `(false, false, false)`
+* `periodic`: periodicity in each axis. Default: `(false, false, false)`
 * `particles_per_block::Integer`: initially allocate memory for this many particles
     per block. Default: 8
 * `ordering`: `UnspecifiedOrder()` or `InsertionOrder()`. Default: `UnspecifiedOrder()`.
 """
 function container(
     ;
-    bounds::Tuple{NTuple{3,Real},NTuple{3,Real}},
-    nblocks::NTuple{3,Integer},
-    periodic::NTuple{3,Bool}=(false, false, false),
+    bounds,
+    nblocks,
+    periodic=(false, false, false),
     particles_per_block::Integer=8,
     ordering::ContainerIterationOrder=UnspecifiedOrder(),
 )

@@ -16,13 +16,15 @@ function particle(id::Integer, pos, radius::Real)
     return Particle{Float64}(id, pos, radius)
 end
 
-function Particle(::Container{<:RawContainer}, (id, x, y, z))
+function Particle(::RawContainer, (id, x, y, z))
     return Particle{Nothing}(id, (x, y, z), nothing)
 end
 
-function Particle(::Container{<:RawContainerPoly}, (id, x, y, z, r))
+function Particle(::RawContainerPoly, (id, x, y, z, r))
     return Particle{Float64}(id, (x, y, z), r)
 end
+
+Particle(con::Container, itr...) = Particle(__raw(con), itr...)
 
 @propagate_inbounds function add_point!(con::Container{<:RawContainer}, p::Particle)
     add_point!(con, p.id, p.pos)

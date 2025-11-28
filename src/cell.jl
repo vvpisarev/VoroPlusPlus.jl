@@ -30,12 +30,13 @@ struct CheckedVoronoiCell<:AbstractVoronoiCell
     valid::Bool
 end
 
-function CheckedVoronoiCell(con::AbstractContainer, itor)
-    raw_con = __raw(con)
-    vc = VoronoiCell(raw_con)
-    valid = __cxxwrap_compute_cell!(vc, raw_con, itor)
+function CheckedVoronoiCell(con::AbstractRawContainer, itor)
+    vc = VoronoiCell(con)
+    valid = __cxxwrap_compute_cell!(vc, con, itor)
     return CheckedVoronoiCell(vc, valid)
 end
+
+CheckedVoronoiCell(con::AbstractContainer, itor) = CheckedVoronoiCell(__raw(con), itor)
 
 __raw(vc::CheckedVoronoiCell) = vc.cell
 __raw(vc::VoronoiCell) = vc
@@ -237,15 +238,18 @@ function cut_by_particle_position!(vc::VoronoiCell, pos)
 end
 
 function compute_cell!(
-    vc::VoronoiCell, con::AbstractContainer, itr
+    vc::VoronoiCell, con::AbstractRawContainer, itr
 )
-    raw_con = __raw(con)
-    cell_is_valid = __cxxwrap_compute_cell!(vc, raw_con, itr)
+    cell_is_valid = __cxxwrap_compute_cell!(vc, con, itr)
     return CheckedVoronoiCell(vc, cell_is_valid)
 end
 
-function compute_cell!(vc::CheckedVoronoiCell, con::AbstractContainer, itr)
+function compute_cell!(vc::CheckedVoronoiCell, con::AbstractRawContainer, itr)
     compute_cell!(vc.cell, con, itr)
+end
+
+function compute_cell!(vc::AbstractVoronoiCell, con::AbstractContainer, itr)
+    return compute_cell!(vc, __raw(con), itr)
 end
 
 #############################
