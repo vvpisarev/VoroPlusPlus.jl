@@ -217,3 +217,21 @@ end
         p1 == p2 && volume(cell1) == volume(cell2)
     end
 end
+
+@testset "Tessellation from an array" begin
+    # Set up constants for the container geometry
+    x_min, x_max = -5.0, 5.0
+    y_min, y_max = -5.0, 5.0
+    z_min, z_max = 0.0, 10.0
+
+    ten_cube_positions = map(eachline("data/pack_ten_cube")) do ln
+        id, x, y, z = (parse(T, str) for (T, str) in zip((Int, Float64, Float64, Float64), eachsplit(ln)))
+        SVector(x, y, z)
+    end
+
+    tessel = voronoi_tessellation(ten_cube_positions; bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)))
+    tessel_pbc = voronoi_tessellation(ten_cube_positions; bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)), periodic=(true, true, true))
+
+    @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel))) ≈ 1000.0
+    @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_pbc))) ≈ 1000.0
+end

@@ -78,6 +78,7 @@ function voronoi_tessellation(
     px, py, pz = (Bool(p) for p in periodic)
     ppb = Int32(8)
 
+    dx, dy, dz = (x_max, y_max, z_max) .- (x_min, y_min, z_min)
     ilscale = cbrt(length(pos) / (OPT_PART_PER_BLOCK * dx * dy * dz))
     nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
 
@@ -115,6 +116,7 @@ function voronoi_tessellation(
     px, py, pz = (Bool(p) for p in periodic)
     ppb = Int32(8)
 
+    dx, dy, dz = (x_max, y_max, z_max) .- (x_min, y_min, z_min)
     ilscale = cbrt(length(pos) / (OPT_PART_PER_BLOCK * dx * dy * dz))
     nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
 
@@ -130,7 +132,7 @@ function voronoi_tessellation(
 end
 
 function voronoi_tessellation(
-    pos::AbstractVector{<:Number}
+    pos::AbstractVector{<:Real}
     ;
     bounds,
     id::AbstractVector{<:Integer}=eachindex(1:3:length(pos)),
@@ -152,7 +154,8 @@ function voronoi_tessellation(
     px, py, pz = (Bool(p) for p in periodic)
     ppb = Int32(8)
 
-    ilscale = cbrt(length(pos) / (OPT_PART_PER_BLOCK * dx * dy * dz))
+    dx, dy, dz = (x_max, y_max, z_max) .- (x_min, y_min, z_min)
+    ilscale = cbrt(length(id) / (OPT_PART_PER_BLOCK * dx * dy * dz))
     nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
 
     rcon = RawContainer(
@@ -353,4 +356,4 @@ end
 
 ordering(con::Container) = con.ord
 
-ordering(con::AbstractRawContainer) = UnspecifiedOrder()
+ordering(::AbstractRawContainer) = UnspecifiedOrder()
