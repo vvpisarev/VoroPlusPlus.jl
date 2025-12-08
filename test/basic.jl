@@ -229,9 +229,33 @@ end
         SVector(x, y, z)
     end
 
-    tessel = voronoi_tessellation(ten_cube_positions; bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)))
-    tessel_pbc = voronoi_tessellation(ten_cube_positions; bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)), periodic=(true, true, true))
+    tessel = voronoi_tessellation(
+        ten_cube_positions
+        ;
+        bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
+    )
+
+    tessel_pbc = voronoi_tessellation(
+        ten_cube_positions
+        ;
+        bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
+        periodic=(true, true, true)
+    )
+
+    tessel_from_any = voronoi_tessellation(
+        Vector{Any}(ten_cube_positions)
+        ;
+        bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
+    )
+
+    tessel_from_real = voronoi_tessellation(
+        reinterpret(Float64, ten_cube_positions)
+        ;
+        bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
+    )
 
     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel))) ≈ 1000.0
     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_pbc))) ≈ 1000.0
+    @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_any))) ≈ 1000.0
+    @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_real))) ≈ 1000.0
 end

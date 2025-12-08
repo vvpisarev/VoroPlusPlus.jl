@@ -34,7 +34,7 @@ module VoroPlusPlus
     #export region_index, draw_domain_gnuplot
     export draw_domain_pov, total_particles
     #Defined outside type Container, as an anonymus function
-    export compute_cell!
+    #export compute_cell!
     #export apply_walls!
 
     # Functions for Container Iterator_Subset(c_loop_subset) Class
