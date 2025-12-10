@@ -84,7 +84,7 @@ function read_polydisperse_particles(
     dy = y_max - y_min
     dz = z_max - z_min
 
-    particles = Particle{Nothing}[]
+    particles = Particle{Float64}[]
     for ln in eachline(input)
         spl = eachsplit(ln)
         id, x, y, z, r = parse.((Int32, Float64, Float64, Float64, Float64), spl)
@@ -108,6 +108,12 @@ function read_polydisperse_particles(
     return con
 end
 
+"""
+    read_particles(con::Container, input)
+
+Read particle data from `input` into an existing container. `input` may be a path or I/O
+    object.
+"""
 function read_particles!(
     con::Container{<:RawContainer},
     input::Union{IO,AbstractString},

@@ -1,3 +1,8 @@
+"""
+    __container_iterator(con::AbstractRawContainer, ord::ContainerIterationOrder)
+
+Return an iterator over the container according to the ordering represented by `ord`.
+"""
 function __container_iterator(con::AbstractRawContainer, ::UnspecifiedOrder)
     return RawContainerIterator(con)
 end
@@ -6,10 +11,22 @@ function __container_iterator(con::AbstractRawContainer, ord::InsertionOrder)
     return InsertionOrderIterator(con, ord)
 end
 
+"""
+    __start!(itr_state)
+
+Start the iteration. Return `true` if there is the next iteration element, `false` if
+    container is empty.
+"""
 function __start!(itr_state)
     return Bool(__cxxwrap_start!(itr_state))
 end
 
+"""
+    __next!(itr_state)
+
+Propagate the iteration state one step forward. Return `true` if there is the next iteration
+    element, `false` if iterator is at end.
+"""
 function __next!(itr_state)
     return Bool(__cxxwrap_inc!(itr_state))
 end
@@ -41,6 +58,11 @@ function Unsafe(con::Unsafe)
     return Unsafe(con.container)
 end
 
+"""
+    Unsafe(con::AbstractContainer)
+
+A wrapper over `AbstractContainer` which reuses the same VoronoiCell object upon iteration.
+"""
 function Unsafe(con::C) where {C<:AbstractContainer}
     return Unsafe{C}(con)
 end
@@ -77,10 +99,20 @@ struct EachParticle{C<:AbstractContainer}
     con::C
 end
 
+"""
+    eachcell(con::AbstractContainer)
+
+Return an iterable which produces only the Voronoi cells upon iteration.
+"""
 function eachcell(con::AbstractContainer)
     return EachCell(con)
 end
 
+"""
+    eachcell(con::AbstractContainer)
+
+Return an iterable which produces only the particles data upon iteration.
+"""
 function eachparticle(con::AbstractContainer)
     return EachParticle(con)
 end

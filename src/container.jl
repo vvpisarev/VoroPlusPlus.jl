@@ -354,6 +354,11 @@ function periodicity(con::AbstractContainer)
     return Bool.(__cxxwrap_periodic(__raw(con)))
 end
 
+"""
+    ordering(con::Container)
+
+Return the object representing ordering of the container.
+"""
 ordering(con::Container) = con.ord
 
 ordering(::AbstractRawContainer) = UnspecifiedOrder()

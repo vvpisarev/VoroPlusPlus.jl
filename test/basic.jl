@@ -218,6 +218,47 @@ end
     end
 end
 
+@testset "Polydisperse file import" begin
+    # Set up constants for the container geometry
+    x_min, x_max = -3.0, 3.0
+    y_min, y_max = -3.0, 3.0
+    z_min, z_max = 0.0, 6.0
+
+    # Set up the number of blocks that the container is divided into
+    n_x = n_y = n_z = 3
+
+    con = VoroPlusPlus.polydisperse_container(
+        ;
+        bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
+        nblocks=(n_x, n_y, n_z),
+        periodic=(false, false, false),
+    )
+
+    @test bounding_box(con) == ((x_min, y_min, z_min), (x_max, y_max, z_max))
+    @test periodicity(con) == (false, false, false)
+
+    @test read_particles!(con, "./data/pack_six_cube_poly") === con
+
+    con_ = read_polydisperse_particles(
+        "./data/pack_six_cube_poly"
+        ;
+        bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
+        periodic=(false, false, false),
+    )
+
+    prt = Tuple{Int32,Float64}[]
+    prt_ = Tuple{Int32,Float64}[]
+    for ((p1, cell1), (p2, cell2)) in zip(con, con_)
+        push!(prt, (p1.id, volume(cell1)))
+        push!(prt_, (p2.id, volume(cell2)))
+    end
+
+    @test all(zip(sort!(prt), sort!(prt_))) do ((p1, v1), (p2, v2))
+        v1 ≈ v2
+    end
+end
+
+
 @testset "Tessellation from an array" begin
     # Set up constants for the container geometry
     x_min, x_max = -5.0, 5.0
@@ -259,3 +300,48 @@ end
     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_any))) ≈ 1000.0
     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_real))) ≈ 1000.0
 end
+
+# @testset "Radical tessellation from an array" begin
+#     # Set up constants for the container geometry
+#     x_min, x_max = -3.0, 3.0
+#     y_min, y_max = -3.0, 3.0
+#     z_min, z_max = 0.0, 6.0
+
+#     six_cube_positions = map(eachline("data/pack_six_cube_poly")) do ln
+#         id, x, y, z, r = (
+#             parse(T, str) for (T, str) in
+#             zip((Int, Float64, Float64, Float64, Float64), eachsplit(ln))
+#         )
+#         SVector(x, y, z, r)
+#     end
+
+#     tessel = voronoi_tessellation(
+#         six_cube_positions
+#         ;
+#         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
+#     )
+
+#     tessel_pbc = voronoi_tessellation(
+#         six_cube_positions
+#         ;
+#         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
+#         periodic=(true, true, true)
+#     )
+
+#     tessel_from_any = voronoi_tessellation(
+#         Vector{Any}(six_cube_positions)
+#         ;
+#         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
+#     )
+
+#     tessel_from_real = voronoi_tessellation(
+#         reinterpret(Float64, six_cube_positions)
+#         ;
+#         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
+#     )
+
+#     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel))) ≈ 216.0
+#     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_pbc))) ≈ 216.0
+#     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_any))) ≈ 216.0
+#     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_real))) ≈ 216.0
+# end
