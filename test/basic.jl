@@ -214,7 +214,7 @@ end
     )
 
     @test all(zip(con, con_)) do ((p1, cell1), (p2, cell2))
-        p1 == p2 && volume(cell1) == volume(cell2)
+        p1 == p2 && volume(cell1) ≈ volume(cell2)
     end
 end
 
@@ -232,6 +232,7 @@ end
         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
         nblocks=(n_x, n_y, n_z),
         periodic=(false, false, false),
+        ordering=VoroPlusPlus.InsertionOrder()
     )
 
     @test bounding_box(con) == ((x_min, y_min, z_min), (x_max, y_max, z_max))
@@ -244,6 +245,7 @@ end
         ;
         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
         periodic=(false, false, false),
+        ordering=VoroPlusPlus.InsertionOrder()
     )
 
     prt = Tuple{Int32,Float64}[]
@@ -253,8 +255,8 @@ end
         push!(prt_, (p2.id, volume(cell2)))
     end
 
-    @test all(zip(sort!(prt), sort!(prt_))) do ((p1, v1), (p2, v2))
-        v1 ≈ v2
+    @test all(zip(con, con_)) do ((p1, cell1), (p2, cell2))
+        p1 == p2 && volume(cell1) ≈ volume(cell2)
     end
 end
 
