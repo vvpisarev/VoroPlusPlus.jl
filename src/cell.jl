@@ -862,7 +862,95 @@ function face_orders(vc::AbstractVoronoiCell)
     end
 end
 
-function draw_gnuplot(io::IOStream, vc::VoronoiCell, disp = (0.0, 0.0, 0.0))
+function draw_domain_gnuplot(f, con::AbstractContainer)
+    __draw_domain_gnuplot(f, __raw(con))
+end
+
+function __draw_domain_gnuplot(path::AbstractString, con::AbstractRawContainer)
+    open(path, "w") do io
+        __draw_domain_gnuplot(io, con)
+    end
+end
+
+function __draw_domain_gnuplot(io::IO, con::AbstractRawContainer)
+    fmt1 = Format("%g %g %g\n%g %g %g\n%g %g %g\n%g %g %g\n")
+    fmt2 = Format("%g %g %g\n%g %g %g\n\n%g %g %g\n%g %g %g\n\n")
+    ax, ay, az, bx, by, bz = __cxxwrap_bounds(con)
+    format(io, fmt1, ax, ay, az, bx, ay, az, bx, by, az, ax, by, az)
+    format(io, fmt1, ax, ay, az, ax, ay, bz, bx, ay, bz, bx, by, bz)
+    format(io, fmt2, ax, by, bz, ax, ay, bz, ax, by, az, ax, by, bz)
+    format(io, fmt2, bx, ay, az, bx, ay, bz, bx, by, az, bx, by, bz)
+end
+
+function draw_gnuplot(
+    fmask::AbstractString, con::AbstractContainer,
+    ;
+    domain::Bool=false, cells::Bool=true, particles::Bool=true,
+)
+    astcnt = count('*', fmask)
+    if astcnt > 1
+        throw(
+            ArgumentError(
+                "Maximum one asterisk is allowed in output name template , got \"" * fmask * "\""
+            )
+        )
+    end
+    raw_con = __raw(con)
+
+    if domain
+        dom_path = astcnt > 0 ? replace(fmask, '*' => "domain") : fmask * "_domain.gnu"
+        open(dom_path, "w") do io
+            __draw_domain_gnuplot(io, raw_con)
+        end
+    end
+
+    if cells && particles
+        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
+        open(cells_path, "w") do cells_io
+            #cells_file = Libc.FILE(cells_io)
+            pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
+            open(pts_path, "w") do pts_io
+                pt_fmt = Format("%d %g %g %g\n")
+                for (pt, cell) in Unsafe(con)
+                    if_valid(cell) do vc
+                        (; id, pos) = pt
+                        dx, dy, dz = pos
+                        draw_gnuplot(cells_io, vc, pos)
+                        #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
+                        format(pts_io, pt_fmt, id, dx, dy, dz)
+                    end
+                end
+            end
+            #close(cells_file)
+        end
+    elseif cells
+        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
+        open(cells_path, "w") do cells_io
+            #cells_file = Libc.FILE(cells_io)
+            for (pt, cell) in Unsafe(con)
+                if_valid(cell) do vc
+                    (; id, pos) = pt
+                    dx, dy, dz = pos
+                    draw_gnuplot(cells_io, vc, pos)
+                    #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
+                end
+            end
+            #close(cells_file)
+        end
+    elseif particles
+        pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
+        open(pts_path, "w") do pts_io
+            pt_fmt = Format("%d %g %g %g\n")
+            for pt in eachparticle(con)
+                (; id, pos) = pt
+                dx, dy, dz = pos
+                format(pts_io, pt_fmt, id, dx, dy, dz)
+            end
+        end
+    end
+end
+
+function __draw_gnuplot(io::IOStream, vc::VoronoiCell, disp = (0.0, 0.0, 0.0))
     _x, _y, _z = disp
     dx, dy, dz = Float64.((_x, _y, _z))
     file = Libc.FILE(io)
