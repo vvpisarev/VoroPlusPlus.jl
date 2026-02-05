@@ -65,6 +65,6 @@ normals
 ## Cell output
 
 ```@docs
-draw_gnuplot
+draw_gnuplot(::IO, ::VoronoiCell)
 ```
 

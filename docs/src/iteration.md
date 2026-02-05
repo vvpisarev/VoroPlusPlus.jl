@@ -13,7 +13,7 @@ By default, a fresh cell is allocated on each iteration, which may be suboptimal
 ```julia
 vol = 0.0
 
-for (p, vc) in Unsafe(con)
+for (p, vc) in VoroPlusPlus.Unsafe(con)
     vol += volume(vc)
 end
 ```
@@ -29,7 +29,7 @@ In some cases, you don't need either cell information or particle information. T
 ```julia
 vol = 0.0
 
-for vc in eachcell(Unsafe(con))
+for vc in eachcell(VoroPlusPlus.Unsafe(con))
     vol += volume(vc)
 end
 ```

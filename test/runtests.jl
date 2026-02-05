@@ -16,6 +16,7 @@ foreach(
 include("basic.jl")
 include("cell_statistics.jl")
 include("iteration.jl")
+include("drawing.jl")
 #include("custom.jl")
 #include("degenerate.jl")
 #include("extra.jl")

@@ -52,3 +52,9 @@ periodicity
 ```@docs
 add_point!
 ```
+
+## Output data to a file
+
+```@docs
+draw_gnuplot(::Any, ::Container)
+```

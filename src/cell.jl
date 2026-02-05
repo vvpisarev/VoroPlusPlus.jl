@@ -20,6 +20,26 @@ Create a new Voronoi cell based on the size of `con`.
 """
 VoronoiCell(con::Container) = VoronoiCell(__raw(con))
 
+function Base.copyto!(dest::VoronoiCell, src::VoronoiCell)
+    __cxxwrap_copyto!(dest, src)
+    return dest
+end
+
+"""
+    copy(vc::AbstractVoronoiCell)
+
+Return an independent copy of `vc`.
+"""
+Base.copy(::AbstractVoronoiCell)
+
+function Base.copy(vc::VoronoiCell)
+    tol = __get_tol(vc)
+    max_len_sq = tol / (10.0 * eps(Float64))
+    dest = VoronoiCell(max_len_sq)
+    copyto!(dest, vc)
+    return dest
+end
+
 """
     CheckedVoronoiCell
 
@@ -38,9 +58,16 @@ end
 
 CheckedVoronoiCell(con::AbstractContainer, itor) = CheckedVoronoiCell(__raw(con), itor)
 
+Base.copy(vc::CheckedVoronoiCell) = CheckedVoronoiCell(copy(vc.cell), vc.valid)
+
 __raw(vc::CheckedVoronoiCell) = vc.cell
 __raw(vc::VoronoiCell) = vc
 
+"""
+    isvalid(vc::CheckedVoronoiCell)
+
+Check if Voronoi cell is computed properly.
+"""
 isvalid(vc::CheckedVoronoiCell) = vc.valid
 isvalid(::VoronoiCell) = true
 
@@ -1011,8 +1038,72 @@ function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
         end
     end
     __reset_edges!(vc, p, nu, ed)
+    return nothing
 end
 
+function draw_pov(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
+    p = __get_p(vc)
+    nu = UnsafeIndexable(__get_nu(vc))
+    ed = UnsafeIndexable(__get_ed(vc))
+    pts = UnsafeIndexable(__get_pts(vc))
+    
+    fmtbuf = Format("%g,%g,%g")
+    fmt1 = Format("sphere{<%s>,r}\n")
+    fmt2 = Format("cylinder{<%s>,<%s>,r}\n")
+    for (i, offset1) in zip(OneTo(p), range(0; step=4, length=p))
+        p1 = pts[offset1+1], pts[offset1+2], pts[offset1+3]
+        posbuf1 = format(fmtbuf, ((dx, dy, dz) .+ 0.5 .* p1)...)
+        format(io, fmt1, posbuf1)
+        for j in OneTo(nu[i])
+            k = ed[i, j]
+            if k < i-true
+                offset2 = k<<2
+                p2 = pts[offset2+1], pts[offset2+2], pts[offset2+3]
+                posbuf2 = format(fmtbuf, ((dx, dy, dz) .+ 0.5 .* p2)...)
+                if posbuf1 != posbuf2
+                    format(io, fmt2, posbuf1, posbuf2)
+                end
+            end
+        end
+    end
+end
+
+function draw_pov_mesh(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
+    p = __get_p(vc)
+    nu = UnsafeIndexable(__get_nu(vc))
+    ed = UnsafeIndexable(__get_ed(vc))
+    pts = UnsafeIndexable(__get_pts(vc))
+    
+    format(io, Format("mesh2 {\nvertex_vectors {\n%d\n"), p)
+    fmt_pt = Format(",<%g,%g,%g>\n")
+    fmt_ind = Format(",<%d,%d,%d>\n")
+    for i in one(p):p
+        pt = pts[i<<2-3], pts[i<<2-2], pts[i<<2-1]
+        format(io, fmt_pt, ((dx, dy, dz) .+ 0.5 .* pt)...)
+    end
+    format(io, Format("}\nface_indices {\n%d\n"),(p-2)<<1)
+    for i in one(p) + true:p
+        for j in one(nu[i]):nu[i]
+		    k = ed[i, j] + true
+            if k > zero(k)
+                ed[i, j] = -k
+                l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
+                m = ed[k, l] + true
+                ed[k, l] = -m
+                while m != i
+                    n = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
+                    format(io, fmt_ind, i-true, k-true, m-true)
+                    k, l = m, n
+                    m = ed[k, l] + true
+                    ed[k, l] = -m
+                end
+            end
+        end
+    end
+    print(io, "}\ninside_vector <0,0,1>\n}\n")
+	__reset_edges!(vc, p, nu, ed)
+    return nothing
+end
 
 function output_vertex_orders(path::AbstractString, vc::VoronoiCell)
 
