@@ -50,19 +50,17 @@ module VoroPlusPlus
     export reset_to_box!, reset_to_tetrahedron!, reset_to_octahedron!
     export cut_by_particle_position!
     export translate!
-    export volume, centroid
+    export max_radius_squared
+    export total_edge_distance, surface_area, volume, centroid
     export number_of_vertices, number_of_edges, number_of_faces
+    export vertex_orders!
     export vertex_positions, vertex_positions!
     export get_neighbors!, append_neighbors!, neighbors
     export normals, get_normals!
     export get_face_perimeters!, face_perimeters
     export get_face_vertices!, face_vertices
     export get_face_orders!, face_orders
-    export total_edge_distance
-    export surface_area
     export draw_pov, draw_pov_mesh
-    export root_vertex
-    export check_relations, check_duplicates
     export plane_intersects
     # Implemented with extern C
     export draw_gnuplot

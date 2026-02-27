@@ -203,7 +203,7 @@ function voronoicell_octahedron(r::Real)
 end
 
 """
-    reset_to_box!(vc::VoronoiCell, (u1, v1, w1), (u2, v2, w2))
+    reset_to_box!(vc::AbstractVoronoiCell, (u1, v1, w1), (u2, v2, w2))
 
 Reshape a Voronoi cell into a rectangular cuboid with provided lower and higher bounds.
 """
@@ -213,8 +213,13 @@ function reset_to_box!(vc::VoronoiCell, (u1, v1, w1), (u2, v2, w2))
     return vc
 end
 
+function reset_to_box!(vc::CheckedVoronoiCell, (u1, v1, w1), (u2, v2, w2))
+    reset_to_box!(vc.cell, (u1, v1, w1), (u2, v2, w2))
+    return vc
+end
+
 """
-    reset_to_tetrahedron!(vc::VoronoiCell, v1, v2, v3, v4)
+    reset_to_tetrahedron!(vc::AbstractVoronoiCell, v1, v2, v3, v4)
 
 Reshape a Voronoi cell into a tetrahedron with given vertices.
 """
@@ -233,9 +238,19 @@ function reset_to_tetrahedron!(
     return vc
 end
 
+function reset_to_tetrahedron!(
+    vc::CheckedVoronoiCell,
+    (u1, v1, w1),
+    (u2, v2, w2),
+    (u3, v3, w3),
+    (u4, v4, w4)
+)
+    reset_to_tetrahedron!(vc.cell, (u1, v1, w1), (u2, v2, w2), (u3, v3, w3), (u4, v4, w4))
+    return vc
+end
 
 """
-    reset_to_octahedron!(vc::VoronoiCell, r::Real)
+    reset_to_octahedron!(vc::AbstractVoronoiCell, r::Real)
 
 Reshape a Voronoi cell into an octahedron with vertices at `(r, 0, 0)`, `(-r, 0, 0)`,
     `(0, r, 0)`, `(0, -r, 0)`, `(0, 0, r)`, and `(0, 0, -r)`.
@@ -246,8 +261,13 @@ function reset_to_octahedron!(vc::VoronoiCell, r::Real)
     return vc
 end
 
+function reset_to_octahedron!(vc::CheckedVoronoiCell, r::Real)
+    reset_to_octahedron!(vc.cell, r)
+    return vc
+end
+
 """
-    cut_by_particle_position!(vc::VoronoiCell, pos)
+    cut_by_particle_position!(vc::AbstractVoronoiCell, pos)
 
 Cut cell `vc` by a particle located at `pos` relative to the cell center.
 """
@@ -262,6 +282,19 @@ function cut_by_particle_position!(vc::VoronoiCell, pos)
         __cxxwrap_nplane!(vc, u, v, w, dsq, zero(Int32))
     end
     return vc
+end
+
+function cut_by_particle_position!(vc::CheckedVoronoiCell, pos)
+    valid = if length(pos) == 3
+        x, y, z = pos
+        u, v, w = Float64.((x, y, z))
+        __cxxwrap_nplane!(vc.cell, u, v, w, zero(Int32))
+    elseif length(pos) == 4
+        x, y, z, rsq = pos
+        u, v, w, dsq = Float64.((x, y, z, rsq))
+        __cxxwrap_nplane!(vc.cell, u, v, w, dsq, zero(Int32))
+    end
+    return CheckedVoronoiCell(vc.cell, valid)
 end
 
 function compute_cell!(
@@ -351,7 +384,7 @@ end
 """
     translate!(vc::AbstractVoronoiCell, d)
 
-Translates the vertices of the Voronoi cell by a given vector.
+Translate the vertices of the Voronoi cell by a given vector.
 """
 @propagate_inbounds function translate!(vc::AbstractVoronoiCell, d)
     @boundscheck if eachindex(d) != OneTo(3)
@@ -365,12 +398,83 @@ Translates the vertices of the Voronoi cell by a given vector.
 end
 
 """
+    max_radius_squared(vc::AbstractVoronoiCell)
+
+Compute the maximum radius squared of a vertex from the center of the cell.
+"""
+function max_radius_squared(vc::CheckedVoronoiCell)
+    if_valid(vc, 0.0) do cell
+        return max_radius_squared(cell)
+    end
+end
+
+"""
+    total_edge_distance(vc::AbstractVoronoiCell)
+
+Compute the sum of edge lengths for the cell.
+"""
+function total_edge_distance(vc::CheckedVoronoiCell)
+    if_valid(vc, 0.0) do cell
+        return total_edge_distance(cell)
+    end
+end
+
+"""
+    surface_area(vc::AbstractVoronoiCell)
+
+Compute the total surface area of the cell.
+"""
+function surface_area(vc::CheckedVoronoiCell)
+    if_valid(vc, 0.0) do cell
+        return surface_area(cell)
+    end
+end
+
+"""
     number_of_vertices(vc::VoronoiCell)
 
 Return the number of vertices of the cell.
 """
 function number_of_vertices(vc::VoronoiCell)
     return __get_p(vc)
+end
+
+"""
+    vertex_orders!(ords::AbstractArray, vc::AbstractVoronoiCell)
+
+Fill `ords` with vertex orders of the cell.
+"""
+function vertex_orders!(ords::StdVector{Int32}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(ords)) do cell
+        __cxxwrap_get_vertex_orders!(cell)
+        return ords
+    end
+end
+
+function vertex_orders!(ords::Vector{<:Integer}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(ords)) do cell
+        p = __get_p(cell)
+        nu = __get_nu(cell)
+        resize!(ords, p)
+        @inbounds for i in 1:p
+            ords[i] = nu[i]
+        end
+        return ords
+    end
+end
+
+function vertex_orders!(ords::AbstractArray{<:Integer}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(ords)) do cell
+        p = __get_p(cell)
+        nu = __get_nu(cell)
+        if length(ords) != p
+            throw(DimensionMismatch("Destination array length does not match number of vertices"))
+        end
+        @inbounds for i in 0:p-1
+            ords[begin+i] = nu[i+true]
+        end
+        return ords
+    end
 end
 
 function vertex_positions!(pos::StdVector{Float64}, vc::VoronoiCell)
@@ -493,7 +597,7 @@ end
 end
 
 @propagate_inbounds function vertex_positions!(
-    pos::AbstractVector, vc::CheckedVoronoiCell, offset...
+    pos::AbstractArray, vc::CheckedVoronoiCell, offset...
 )
     if_valid(vc, isempty(pos) ? pos : empty!(pos)) do cell
         vertex_positions!(pos, cell, offset...)
