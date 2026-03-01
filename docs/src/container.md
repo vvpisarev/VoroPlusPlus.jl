@@ -4,6 +4,9 @@ Container is a box in which the tessellation is performed.
 
 Voro++ supports periodic and non-periodic mono- and polydisperse containers.
 
+VoroPlusPlus.jl type `Container` encapsulates `container` or `container_poly` object 
+from Voro++ with an ordering object.
+
 ## Creating a container
 
 ### Allocate an empty container
@@ -28,7 +31,7 @@ Ordering defines in which order the particles and their Voronoi cells are given 
 `UnspecifiedOrder()` means that the order of insertion is not preserved upon iteration.
 
 `InsertionOrder()` means that the iteration produces particles in the same order they've
-    been inserted.
+    been inserted. This type wraps `voro::particle_order` class.
 
 With Voro++, it's possible to insert some particles with order tracking and some without
     it. In Julia, this is not possible through public interface.

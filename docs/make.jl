@@ -15,6 +15,7 @@ makedocs(;
         "Voronoi cells" => "cell.md",
         "Walls" => "walls.md",
         "Iteration over container" => "iteration.md",
+        "Low-level API" => "low_level.md",
         # "Release Notes" => "release_notes.md"
     ],
     warnonly = true,

@@ -362,3 +362,47 @@ Return the object representing ordering of the container.
 ordering(con::Container) = con.ord
 
 ordering(::AbstractRawContainer) = UnspecifiedOrder()
+
+"""
+    isinside(pos, con::AbstractContainer)
+
+Test if a given vector lies within the container bounds and any walls.
+"""
+function isinside(pos, con::AbstractContainer)
+    if eachindex(pos) != OneTo(3)
+        throw(ArgumentError("Can only test 3D vectors in container"))
+    end
+    x, y, z = pos
+    xx, yy, zz = Float64.((x, y, z))
+    return Bool(__cxxwrap_isinside(__raw(con), xx, yy, zz))
+end
+
+"""
+    total_particles(con::AbstractContainer)
+
+Return the total number of points in the container.
+"""
+function total_particles(con::AbstractContainer)
+    return total_particles(__raw(con))
+end
+
+"""
+    compute_all_cells(con::AbstractContainer)
+
+Computes all of the Voronoi cells in the container, but does nothing with the output. It is
+    useful for measuring the pure computation time of the Voronoi algorithm, without any
+    additional calculations such as volume evaluation or cell output.
+"""
+function compute_all_cells(con::AbstractContainer)
+    return compute_all_cells(__raw(con))
+end
+
+function find_cell(con::AbstractContainer, pos)
+    if eachindex(pos) != OneTo(3)
+        throw(ArgumentError("Can only test 3D vectors in container"))
+    end
+    x, y, z = pos
+    xx, yy, zz = Float64.((x, y, z))
+    found, id, px, py, pz = __cxxwrap_find_cell(__raw(con), xx, yy, zz)
+    return (Bool(found), Particle(id, (px, py, pz)))
+end
