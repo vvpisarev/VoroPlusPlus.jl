@@ -38,8 +38,8 @@ end
 
 particle_type(::Type{C}) where {C<:AbstractContainer} = particle_type(__raw_type(C))
 
-particle_type(::Type{RawContainer}) = Particle{Nothing}
+particle_type(::Type{<:RawContainer}) = Particle{Nothing}
 
-particle_type(::Type{RawContainerPoly}) = Particle{Float64}
+particle_type(::Type{<:RawContainerPoly}) = Particle{Float64}
 
-particle_type(::C) where {C} = particle_type(C)
+particle_type(::C) where {C<:AbstractContainer} = particle_type(C)

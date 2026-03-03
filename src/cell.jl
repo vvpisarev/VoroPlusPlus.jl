@@ -390,9 +390,9 @@ Translate the vertices of the Voronoi cell by a given vector.
     @boundscheck if eachindex(d) != OneTo(3)
         throw(DimensionMismatch("Translation vector must be a length-3 array or tuple."))
     end
-    if_valid(vc, vc) do vc
+    if_valid(vc, vc) do cell
         @inbounds x, y, z = d[1], d[2], d[3]
-        __cxxwrap_translate!(vc, x, y, z)
+        __cxxwrap_translate!(cell, x, y, z)
         return vc
     end
 end
@@ -431,12 +431,14 @@ function surface_area(vc::CheckedVoronoiCell)
 end
 
 """
-    number_of_vertices(vc::VoronoiCell)
+    number_of_vertices(vc::AbstractVoronoiCell)
 
 Return the number of vertices of the cell.
 """
-function number_of_vertices(vc::VoronoiCell)
-    return __get_p(vc)
+function number_of_vertices(vc::AbstractVoronoiCell)
+    if_valid(vc, zero(Int32)) do cell
+        return __get_p(cell)
+    end
 end
 
 """
@@ -730,8 +732,10 @@ function append_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell
     end
 end
 
-function get_neighbors!(v::StdVector{Int32}, vc::VoronoiCell)
-    __cxxwrap_get_neighbors!(v, vc)
+function get_neighbors!(v::StdVector{Int32}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do cell
+        __cxxwrap_get_neighbors!(v, cell)
+    end
     return v
 end
 
@@ -852,9 +856,9 @@ function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
     return v
 end
 
-function get_normals!(v::AbstractVector, vc::CheckedVoronoiCell)
-    if_valid(vc, empty!(v)) do vc
-        get_normals!(v, vc)
+function get_normals!(v::Vector, vc::CheckedVoronoiCell)
+    if_valid(vc, empty!(v)) do cell
+        get_normals!(v, cell)
     end
 end
 
@@ -865,6 +869,11 @@ Return the normals to the faces of `vc` as `Vector{SVector{3,Float64}}`.
 """
 normals(vc::AbstractVoronoiCell) = get_normals!(SVector{3,Float64}[], vc)
 
+"""
+    get_face_perimeters!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
+
+Fill `v` with face perimeters of cell `vc`.
+"""
 function get_face_perimeters!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do vc
         p = __get_p(vc)
@@ -909,7 +918,68 @@ end
 function face_perimeters(vc::AbstractVoronoiCell)
     v = Float64[]
     if_valid(vc, v) do cell
-        get_face_perimeters!(v, vc)
+        get_face_perimeters!(v, cell)
+    end
+end
+
+function get_face_areas!(v::StdVector{Float64}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do cell
+        __cxxwrap_face_areas!(v, cell)
+    end
+    return v
+end
+
+"""
+    get_face_areas!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
+
+Fill `v` with face areas of cell `vc`.
+"""
+function get_face_areas!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
+    if_valid(vc, empty!(v)) do cell
+        p = __get_p(vc)
+        nu = UnsafeIndexable(__get_nu(vc))
+        ed = UnsafeIndexable(__get_ed(vc))
+        pts = UnsafeIndexable(__get_pts(vc))
+        for i in one(p)+true:p, j in OneTo(nu[i])
+            k = ed[i, j] + true
+            if k > zero(k)
+                area = 0.0
+                ed[i, j] = -k
+                l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
+                m = ed[k, l] + true
+                ed[k, l] = -m
+                while m != i
+                    n = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
+                    ux = pts[(k<<2)-3] - pts[(i<<2)-3]
+                    uy = pts[(k<<2)-2] - pts[(i<<2)-2]
+                    uz = pts[(k<<2)-1] - pts[(i<<2)-1]
+
+                    vx = pts[(m<<2)-3] - pts[(i<<2)-3]
+                    vy = pts[(m<<2)-2] - pts[(i<<2)-2]
+                    vz = pts[(m<<2)-1] - pts[(i<<2)-1]
+
+                    wx=uy*vz - uz*vy
+                    wy=uz*vx - ux*vz
+                    wz=ux*vy - uy*vx
+                    area += hypot(wx, wy, wz)
+
+                    k, l = m, n
+                    m = ed[k, l] + true
+                    ed[k, l] = -m
+                end
+                push!(v, 0.125 * area)
+            end
+        end
+
+        __reset_edges!(cell, p, nu, ed)
+        return v
+    end
+end
+
+function face_areas(vc::AbstractVoronoiCell)
+    v = Float64[]
+    if_valid(vc, v) do cell
+        get_face_areas!(v, vc)
     end
 end
 
@@ -988,125 +1058,29 @@ end
 
 function face_orders(vc::AbstractVoronoiCell)
     v = Int[]
-    if_valid(vc, v) do vc
-        get_face_orders!(v, vc)
+    if_valid(vc, v) do cell
+        get_face_orders!(v, cell)
     end
 end
 
-function draw_domain_gnuplot(f, con::AbstractContainer)
-    __draw_domain_gnuplot(f, __raw(con))
-end
-
-function __draw_domain_gnuplot(path::AbstractString, con::AbstractRawContainer)
-    open(path, "w") do io
-        __draw_domain_gnuplot(io, con)
-    end
-end
-
-function __draw_domain_gnuplot(io::IO, con::AbstractRawContainer)
-    fmt1 = Format("%g %g %g\n%g %g %g\n%g %g %g\n%g %g %g\n")
-    fmt2 = Format("%g %g %g\n%g %g %g\n\n%g %g %g\n%g %g %g\n\n")
-    ax, ay, az, bx, by, bz = __cxxwrap_bounds(con)
-    format(io, fmt1, ax, ay, az, bx, ay, az, bx, by, az, ax, by, az)
-    format(io, fmt1, ax, ay, az, ax, ay, bz, bx, ay, bz, bx, by, bz)
-    format(io, fmt2, ax, by, bz, ax, ay, bz, ax, by, az, ax, by, bz)
-    format(io, fmt2, bx, ay, az, bx, ay, bz, bx, by, az, bx, by, bz)
-end
-
-function draw_gnuplot(
-    fmask::AbstractString, con::AbstractContainer,
-    ;
-    domain::Bool=false, cells::Bool=true, particles::Bool=true,
-)
-    astcnt = count('*', fmask)
-    if astcnt > 1
-        throw(
-            ArgumentError(
-                "Maximum one asterisk is allowed in output name template , got \"" * fmask * "\""
-            )
-        )
-    end
-    raw_con = __raw(con)
-
-    if domain
-        dom_path = astcnt > 0 ? replace(fmask, '*' => "domain") : fmask * "_domain.gnu"
-        open(dom_path, "w") do io
-            __draw_domain_gnuplot(io, raw_con)
-        end
-    end
-
-    if cells && particles
-        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
-        open(cells_path, "w") do cells_io
-            #cells_file = Libc.FILE(cells_io)
-            pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
-            open(pts_path, "w") do pts_io
-                pt_fmt = Format("%d %g %g %g\n")
-                for (pt, cell) in Unsafe(con)
-                    if_valid(cell) do vc
-                        (; id, pos) = pt
-                        dx, dy, dz = pos
-                        draw_gnuplot(cells_io, vc, pos)
-                        #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
-                        format(pts_io, pt_fmt, id, dx, dy, dz)
-                    end
-                end
-            end
-            #close(cells_file)
-        end
-    elseif cells
-        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
-        open(cells_path, "w") do cells_io
-            #cells_file = Libc.FILE(cells_io)
-            for (pt, cell) in Unsafe(con)
-                if_valid(cell) do vc
-                    (; id, pos) = pt
-                    dx, dy, dz = pos
-                    draw_gnuplot(cells_io, vc, pos)
-                    #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
-                end
-            end
-            #close(cells_file)
-        end
-    elseif particles
-        pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
-        open(pts_path, "w") do pts_io
-            pt_fmt = Format("%d %g %g %g\n")
-            for pt in eachparticle(con)
-                (; id, pos) = pt
-                dx, dy, dz = pos
-                format(pts_io, pt_fmt, id, dx, dy, dz)
-            end
-        end
-    end
-end
-
-function __draw_gnuplot(io::IOStream, vc::VoronoiCell, disp = (0.0, 0.0, 0.0))
-    _x, _y, _z = disp
-    dx, dy, dz = Float64.((_x, _y, _z))
-    file = Libc.FILE(io)
-    ccall(
-        (:draw_gnuplot_voronoicell, "libvoro++wrap"),
-        Cvoid,
-        (Ptr{Cvoid}, Cdouble, Cdouble, Cdouble, Ptr{Libc.FILE}),
-        vc.cpp_object, dx, dy, dz, file,
-    )
-    close(file)
-end
-
-function draw_gnuplot(path::AbstractString, vc::VoronoiCell, disp = (0.0, 0.0, 0.0))
+function draw_gnuplot(path::AbstractString, vc::AbstractVoronoiCell, disp = (0.0, 0.0, 0.0))
     open(path, "w+") do io
-        draw_gnuplot(io, vc, disp)
+        if_valid(vc) do cell
+            draw_gnuplot(io, cell, disp)
+        end
     end
-    # _x, _y, _z = disp
-    # dx, dy, dz = Float64.((_x, _y, _z))
-    # draw_gnuplot(vc, dx, dy, dz, path)
+end
+
+function draw_gnuplot(io::IO, vc::CheckedVoronoiCell, disp = (0.0, 0.0, 0.0))
+    if_valid(vc) do cell
+        draw_gnuplot(io, cell, disp)
+    end
 end
 
 """
-    draw_gnuplot(output, vc::VoronoiCell, disp=(0.0, 0.0, 0.0))
+    draw_gnuplot(output, vc::AbstractVoronoiCell, disp=(0.0, 0.0, 0.0))
 
-Output cell Outputs the edges of the Voronoi cell in gnuplot format to an output stream or
+Outputs the edges of the Voronoi cell in gnuplot format to an output stream or
     to a file given by name. `disp` is a displacement to add to cell position.
 """
 function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
@@ -1145,12 +1119,18 @@ function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
     return nothing
 end
 
+"""
+    draw_pov(output, vc::AbstractVoronoiCell, disp=(0.0, 0.0, 0.0))
+
+Outputs the edges of the Voronoi cell in POV-Ray format to an output stream or
+    to a file given by name. `disp` is a displacement to add to cell position.
+"""
 function draw_pov(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
     p = __get_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
     pts = UnsafeIndexable(__get_pts(vc))
-    
+
     fmtbuf = Format("%g,%g,%g")
     fmt1 = Format("sphere{<%s>,r}\n")
     fmt2 = Format("cylinder{<%s>,<%s>,r}\n")
@@ -1172,12 +1152,32 @@ function draw_pov(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
     end
 end
 
+function draw_pov(path::AbstractString, vc::AbstractVoronoiCell, disp = (0.0, 0.0, 0.0))
+    open(path, "w+") do io
+        if_valid(vc) do cell
+            draw_pov(io, cell, disp)
+        end
+    end
+end
+
+function draw_pov(io::IO, vc::CheckedVoronoiCell, disp = (0.0, 0.0, 0.0))
+    if_valid(vc) do cell
+        draw_pov(io, cell, disp)
+    end
+end
+
+"""
+    draw_pov_mesh(output, vc::AbstractVoronoiCell, disp=(0.0, 0.0, 0.0))
+
+Outputs the edges of the Voronoi cell in POV-Ray Mesh format to an output stream or
+    to a file given by name. `disp` is a displacement to add to cell position.
+"""
 function draw_pov_mesh(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
     p = __get_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
     pts = UnsafeIndexable(__get_pts(vc))
-    
+
     format(io, Format("mesh2 {\nvertex_vectors {\n%d\n"), p)
     fmt_pt = Format(",<%g,%g,%g>\n")
     fmt_ind = Format(",<%d,%d,%d>\n")
@@ -1209,145 +1209,16 @@ function draw_pov_mesh(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
     return nothing
 end
 
-function output_vertex_orders(path::AbstractString, vc::VoronoiCell)
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
+function draw_pov_mesh(path::AbstractString, vc::AbstractVoronoiCell, disp = (0.0, 0.0, 0.0))
+    open(path, "w+") do io
+        if_valid(vc) do cell
+            draw_pov_mesh(io, cell, disp)
+        end
     end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Vertex orders       : ", file)
-    ccall(
-        (:output_vertex_orders_vorocell, "libvoro++wrap"),
-        Cvoid,
-        (Ptr{Cvoid}, Ptr{Libc.FILE}),
-        vc.cpp_object, file,
-    )
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
 end
 
-
-function output_face_perimeters(path::AbstractString, vc::VoronoiCell)
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
+function draw_pov_mesh(io::IO, vc::CheckedVoronoiCell, disp = (0.0, 0.0, 0.0))
+    if_valid(vc) do cell
+        draw_pov_mesh(io, cell, disp)
     end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Face perimeters     : ", file)
-    ccall(
-        (:output_face_perimeters_vorocell, "libvoro++wrap"),
-        Cvoid,
-        (Ptr{Cvoid}, Ptr{Libc.FILE}),
-        vc.cpp_object, file,
-    )
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
-end
-
-######
-
-function output_face_freq_table(path::AbstractString, vc::VoronoiCell)
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
-    end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Face freq. table    : ", file)
-    ccall(
-        (:output_face_freq_table_vorocell, "libvoro++wrap"),
-        Cvoid,
-        (Ptr{Cvoid}, Ptr{Libc.FILE}),
-        vc.cpp_object, file,
-    )
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
-end
-
-function output_face_orders(path::AbstractString, vc::VoronoiCell)
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
-    end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Face orders         : ", file)
-    ccall(
-        (:output_face_orders_vorocell, "libvoro++wrap"),
-        Cvoid,
-        (Ptr{Cvoid}, Ptr{Libc.FILE}),
-        vc.cpp_object, file,
-    )
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
-end
-
-function output_face_areas(path::AbstractString, vc::VoronoiCell)
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
-    end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Face areas          : ", file)
-    ccall(
-        (:output_face_areas_vorocell, "libvoro++wrap"),
-        Cvoid,
-        (Ptr{Cvoid}, Ptr{Libc.FILE}),
-        vc.cpp_object, file,
-    )
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
-end
-
-function output_normals(path::AbstractString, vc::VoronoiCell)
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
-    end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Face normals        : ", file)
-    ccall(
-        (:output_normals_vorocell, "libvoro++wrap"),
-        Cvoid,
-        (Ptr{Cvoid}, Ptr{Libc.FILE}),
-        vc.cpp_object, file,
-    )
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
-end
-
-function output_face_vertices(path::AbstractString, vc::VoronoiCell)
-
-    mode = "w+"
-    if isfile(path)
-        mode = "a+"
-    end
-
-    io = open(path, mode)
-    file = Libc.FILE(io)
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "Face vertices       : ", file)
-    ccall(
-        (:output_face_vertices_vorocell, "libvoro++wrap"),
-        Cvoid,
-        (Ptr{Cvoid}, Ptr{Libc.FILE}),
-        vc.cpp_object, file,
-    )
-    ccall(:fputs, Cint, (Cstring, Ptr{Libc.FILE}), "\n", file)
-    close(file)
 end

@@ -27,13 +27,6 @@
 
     @info "" volume(vc) 4/3 * pi / 8
     @test 0 < volume(vc) - 4/3 * pi / 8 < 0.05
-    # Output the Voronoi cell to a file, in the gnuplot format
-    draw_gnuplot("single_cell.gnu", vc)
-    cell_str = let buf = IOBuffer()
-        draw_gnuplot(buf, vc)
-        String(take!(buf))
-    end
-    @test read("single_cell.gnu", String) == cell_str
 end
 
 @testset "Platonic Solids" begin

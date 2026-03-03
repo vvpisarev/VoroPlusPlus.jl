@@ -58,6 +58,7 @@ module VoroPlusPlus
     export get_neighbors!, append_neighbors!, neighbors
     export normals, get_normals!
     export get_face_perimeters!, face_perimeters
+    export get_face_areas!, face_areas
     export get_face_vertices!, face_vertices
     export get_face_orders!, face_orders
     export draw_pov, draw_pov_mesh
@@ -82,18 +83,18 @@ module VoroPlusPlus
     ####################################################3
 
     function set_wrapper_path(path::AbstractString=voropp_wrapper_jll.libvoropp_wrap_path)
-        lib_suffix = Sys.iswindows() ? ".dll" : ".so"
+        lib_suffix = Sys.iswindows() ? ".dll" : Sys.isapple ? ".dylib" : ".so"
         libfile = "libvoro++wrap" * lib_suffix
         # Set it in our runtime values, as well as saving it to disk
-        if isfile(path) && endswith(path, libfile)
+        if isfile(path)
             @set_preferences!("VORO_JL_WRAPPER_PATH" => path)
-            @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
+            @info("Voro++ wrapper path set to $(path); restart your Julia session for this change to take effect!")
         elseif isfile(joinpath(path, libfile))
             @set_preferences!("VORO_JL_WRAPPER_PATH" => joinpath(path, libfile))
-            @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
+            @info("Voro++ wrapper path set to $(joinpath(path, libfile)); restart your Julia session for this change to take effect!")
         elseif isfile(joinpath(path, "lib", libfile))
             @set_preferences!("VORO_JL_WRAPPER_PATH" => joinpath(path, "lib", libfile))
-            @info("Voro++ wrapper path set; restart your Julia session for this change to take effect!")
+            @info("Voro++ wrapper path set to $(joinpath(path, "lib", libfile)); restart your Julia session for this change to take effect!")
         else
             mesg = "Could not find valid wrapper library at " *
                     "$(joinpath(path, libfile)) or " *

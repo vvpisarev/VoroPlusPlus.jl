@@ -397,7 +397,12 @@ function compute_all_cells(con::AbstractContainer)
     return compute_all_cells(__raw(con))
 end
 
-function find_cell(con::AbstractContainer, pos)
+"""
+    nearest_particle(con::AbstractContainer, pos)
+
+Return the parameter of the particle nearest to the position `pos`.
+"""
+function nearest_particle(con::AbstractContainer, pos)
     if eachindex(pos) != OneTo(3)
         throw(ArgumentError("Can only test 3D vectors in container"))
     end
@@ -405,4 +410,194 @@ function find_cell(con::AbstractContainer, pos)
     xx, yy, zz = Float64.((x, y, z))
     found, id, px, py, pz = __cxxwrap_find_cell(__raw(con), xx, yy, zz)
     return (Bool(found), Particle(id, (px, py, pz)))
+end
+
+"""
+    draw_domain_pov(path::AbstractString, con::AbstractContainer)
+
+Export the bounding box of the container in POV-Ray format.
+"""
+draw_domain_pov
+
+"""
+    draw_domain_gnuplot(file, con::AbstractContainer)
+
+Export the bounding box of the container in Gnuplot format. `file` can be a path or an `IO`
+    object.
+"""
+draw_domain_gnuplot
+
+function draw_domain_gnuplot(f, con::AbstractContainer)
+    __draw_domain_gnuplot(f, __raw(con))
+end
+
+function __draw_domain_gnuplot(path::AbstractString, con::AbstractRawContainer)
+    open(path, "w") do io
+        __draw_domain_gnuplot(io, con)
+    end
+end
+
+function __draw_domain_gnuplot(io::IO, con::AbstractRawContainer)
+    fmt1 = Format("%g %g %g\n%g %g %g\n%g %g %g\n%g %g %g\n")
+    fmt2 = Format("%g %g %g\n%g %g %g\n\n%g %g %g\n%g %g %g\n\n")
+    ax, ay, az, bx, by, bz = __cxxwrap_bounds(con)
+    format(io, fmt1, ax, ay, az, bx, ay, az, bx, by, az, ax, by, az)
+    format(io, fmt1, ax, ay, az, ax, ay, bz, bx, ay, bz, bx, by, bz)
+    format(io, fmt2, ax, by, bz, ax, ay, bz, ax, by, az, ax, by, bz)
+    format(io, fmt2, bx, ay, az, bx, ay, bz, bx, by, az, bx, by, bz)
+end
+
+"""
+    draw_gnuplot(prefix::AbstractString, con::AbstractContainer; domain::Bool=false, cells::Bool=true, particles::Bool=true)
+
+Export container data to text files in gnuplot format. If `prefix` does not have asterisks,
+    then files with domain, cells and particles data are named `prefix_domain.gnu`,
+    `prefix_cells.gnu` and `prefix_pts.gnu`. If it contains one asterisk, it is replaced by
+    `domain`, `cells` and `pts`, respectively. E.g. if `prefix = "/home/user/voronoi.*.dat`,
+    then domain would be written to `/home/user/voronoi.domain.dat` etc.
+"""
+function draw_gnuplot(
+    fmask::AbstractString, con::AbstractContainer,
+    ;
+    domain::Bool=false, cells::Bool=true, particles::Bool=true,
+)
+    astcnt = count('*', fmask)
+    if astcnt > 1
+        throw(
+            ArgumentError(
+                "Maximum one asterisk is allowed in output name template , got \"" * fmask * "\""
+            )
+        )
+    end
+    raw_con = __raw(con)
+
+    if domain
+        dom_path = astcnt > 0 ? replace(fmask, '*' => "domain") : fmask * "_domain.gnu"
+        open(dom_path, "w") do io
+            __draw_domain_gnuplot(io, raw_con)
+        end
+    end
+
+    pt_fmt = Format("%d %g %g %g\n")
+    if cells && particles
+        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
+        open(cells_path, "w") do cells_io
+            #cells_file = Libc.FILE(cells_io)
+            pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
+            open(pts_path, "w") do pts_io
+                for (pt, cell) in Unsafe(con)
+                    if_valid(cell) do vc
+                        (; id, pos) = pt
+                        dx, dy, dz = pos
+                        draw_gnuplot(cells_io, vc, pos)
+                        #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
+                        format(pts_io, pt_fmt, id, dx, dy, dz)
+                    end
+                end
+            end
+            #close(cells_file)
+        end
+    elseif cells
+        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
+        open(cells_path, "w") do cells_io
+            #cells_file = Libc.FILE(cells_io)
+            for (pt, cell) in Unsafe(con)
+                if_valid(cell) do vc
+                    (; id, pos) = pt
+                    dx, dy, dz = pos
+                    draw_gnuplot(cells_io, vc, pos)
+                    #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
+                end
+            end
+            #close(cells_file)
+        end
+    elseif particles
+        pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
+        open(pts_path, "w") do pts_io
+            for pt in eachparticle(con)
+                (; id, pos) = pt
+                dx, dy, dz = pos
+                format(pts_io, pt_fmt, id, dx, dy, dz)
+            end
+        end
+    end
+end
+
+"""
+    draw_cells_pov(path::AbstractString, con::AbstractContainer)
+
+Export the cells geometry in POV-Ray format.
+"""
+function draw_cells_pov(path::AbstractString, con::AbstractContainer)
+    draw_cells_pov(__raw(con), path)
+    return nothing
+end
+
+"""
+    draw_cells_gnuplot(path::AbstractString, con::AbstractContainer)
+
+Export the cells geometry in Gnuplot format.
+"""
+function draw_cells_gnuplot(path::AbstractString, con::AbstractContainer)
+    draw_cells_gnuplot(__raw(con), path)
+    return nothing
+end
+
+"""
+    draw_particles_pov(path::AbstractString, con::AbstractContainer)
+
+Export the particles in POV-Ray format.
+"""
+function draw_particles_pov(path::AbstractString, con::AbstractContainer)
+    draw_particles_pov(__raw(con), path)
+    return nothing
+end
+
+"""
+    draw_particles(path::AbstractString, con::AbstractContainer)
+
+Export the particles information in text format.
+"""
+function draw_particles(path::AbstractString, con::AbstractContainer)
+    draw_paticles(__raw(con), path)
+    return nothing
+end
+
+"""
+    draw_pov(prefix::AbstractString, con::AbstractContainer; domain::Bool=false, cells::Bool=true, particles::Bool=true)
+
+Export container data to text files in POV-Ray format. If `prefix` does not have asterisks,
+    then files with domain, cells and particles data are named `prefix_domain.pov`,
+    `prefix_cells.pov` and `prefix_pts.pov`. If it contains one asterisk, it is replaced by
+    `domain`, `cells` and `pts`, respectively. E.g. if `prefix = "/home/user/voronoi.*.pov`,
+    then domain would be written to `/home/user/voronoi.domain.pov` etc.
+"""
+function draw_pov(
+    fmask::AbstractString, con::AbstractContainer,
+    ;
+    domain::Bool=false, cells::Bool=true, particles::Bool=true,
+)
+    astcnt = count('*', fmask)
+    if astcnt > 1
+        throw(
+            ArgumentError(
+                "Maximum one asterisk is allowed in output name template , got \"" * fmask * "\""
+            )
+        )
+    end
+    raw_con = __raw(con)
+
+    if domain
+        dom_path = astcnt > 0 ? replace(fmask, '*' => "domain") : fmask * "_domain.pov"
+        draw_domain_pov(raw_con, dom_path)
+    end
+
+    if cells
+        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
+        draw_cells_pov(raw_con, cells_path)
+    end
+    if particles
+        pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
+        draw_particles_pov(raw_con, pts_path)
+    end
 end

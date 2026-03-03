@@ -38,7 +38,7 @@
     @test get_face_orders!(Int[], vc) == get_face_orders!(StdVector{Int32}(), vc)
 
     @test face_orders(vc) == [5, 4, 4, 4, 4, 4, 5]
-    #@test face_areas(vc) ≈ [3.5, 2, 4, 4, 2, 2.82843, 3.5]
+    @test isapprox(face_areas(vc), [3.5, 2, 4, 4, 2, 2.82843, 3.5]; atol=1e-5)
 
     @test isapprox(centroid(vc), [-2/21, -2/21, 0])
     #@info get_face_orders!(Int[], vc)

@@ -40,4 +40,6 @@
 
     cells_u = collect(eachcell(VoroPlusPlus.Unsafe(con)))
     @test all(cells_u) do cell; cell === cells_u[1]; end
+
+    @test eltype(con) == Pair{eltype(eachparticle(con)), eltype(eachcell(con))}
 end
