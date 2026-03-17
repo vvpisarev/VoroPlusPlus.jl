@@ -179,7 +179,7 @@ Create a Voronoi cell initialized as tetrahedron with given vertices.
 function voronoicell_tetrahedron((u1, v1, w1), (u2, v2, w2), (u3, v3, w3), (u4, v4, w4))
     x1, y1, z1 = Float64.((u1, v1, w1))
     x2, y2, z2 = Float64.((u2, v2, w2))
-    x3, y3, z3 = Float64.((u3, v3, w4))
+    x3, y3, z3 = Float64.((u3, v3, w3))
     x4, y4, z4 = Float64.((u4, v4, w4))
     xmax, xmin = extrema((x1, x2, x3, x4))
     ymax, ymin = extrema((y1, y2, y3, y4))
@@ -232,7 +232,7 @@ function reset_to_tetrahedron!(
 )
     x1, y1, z1 = Float64.((u1, v1, w1))
     x2, y2, z2 = Float64.((u2, v2, w2))
-    x3, y3, z3 = Float64.((u3, v3, w4))
+    x3, y3, z3 = Float64.((u3, v3, w3))
     x4, y4, z4 = Float64.((u4, v4, w4))
     __cxxwrap_init_tetrahedron!(vc, x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4)
     return vc
@@ -740,7 +740,7 @@ function get_neighbors!(v::StdVector{Int32}, vc::AbstractVoronoiCell)
 end
 
 """
-    get_normals!(v::Vector, vc::AbstractVoronoiCell)
+    get_normals!(v::AbstractVector, vc::AbstractVoronoiCell)
 
 Fill `v` with the normals to the faces of `vc`.
 
@@ -749,9 +749,9 @@ If `v` is a numeric vector, then normals are stored as 3 consecutive items. Othe
 """
 get_normals!
 
-function get_normals!(v::Vector, vc::VoronoiCell)
+function get_normals!(v::AbstractVector{T}, vc::VoronoiCell) where {T}
+    PointType = __get_point_type(T)
     empty!(v)
-    __test_vector(v)
     p = __get_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
@@ -759,30 +759,46 @@ function get_normals!(v::Vector, vc::VoronoiCell)
     for i in one(p)+true:p, j in OneTo(nu[i])
         k = ed[i, j] + true
         if k > zero(k)
-            __append_normal!(v, vc, ed, nu, pts, i, j, k)
+            __append_normal!(v, PointType, vc, ed, nu, pts, i, j, k)
         end
     end
     __reset_edges!(vc, p, nu, ed)
     return v
 end
 
-function __append_normal!(v::Vector{<:Number}, vc, ed, nu, pts, i, j, k)
+function __get_point_type(::Type{T}) where {T<:Real}
+    if promote_type(Float64, T) === T
+        return T
+    else
+        throw(ArgumentError("`get_normals!` requires container element type wider that `Float64`, got $T."))
+    end
+end
+
+function __get_point_type(::Type{>:SVector{3,Float64}})
+    return SVector{3,Float64}
+end
+
+function __get_point_type(::Type{NTuple{3,Float64}})
+    return NTuple{3,Float64}
+end
+
+function __append_normal!(v::AbstractVector{<:Real}, T, vc, ed, nu, pts, i, j, k)
     orig_len = length(v)
     ed[i, j] = -k
     l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
     n_ed = one(k)
     S = zero(SMatrix{3, 3, Float64, 9})
-    xc = pts[4 * k - 3]
-    yc = pts[4 * k - 2]
-    zc = pts[4 * k - 1]
+    xc = pts[k<<2 - 3]
+    yc = pts[k<<2 - 2]
+    zc = pts[k<<2 - 1]
     push!(v, xc, yc, zc)
     while true
         n_ed += true
         m = ed[k, l] + true
         ed[k, l] = -m
-        ux = pts[4 * m - 3]
-        uy = pts[4 * m - 2]
-        uz = pts[4 * m - 1]
+        ux = pts[m<<2 - 3]
+        uy = pts[m<<2 - 2]
+        uz = pts[m<<2 - 1]
         xc += ux
         yc += uy
         zc += uz
@@ -811,26 +827,26 @@ function __append_normal!(v::Vector{<:Number}, vc, ed, nu, pts, i, j, k)
     return v
 end
 
-function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
+function __append_normal!(v::AbstractVector, T, vc, ed, nu, pts, i, j, k)
     ed[i, j] = -k
     l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
     n_ed = one(k)
     S = zero(SMatrix{3, 3, Float64, 9})
-    xc = pts[4 * k - 3]
-    yc = pts[4 * k - 2]
-    zc = pts[4 * k - 1]
-    push!(v, SVector(xc, yc, zc))
+    xc = pts[k<<2 - 3]
+    yc = pts[k<<2 - 2]
+    zc = pts[k<<2 - 1]
+    push!(v, T(xc, yc, zc))
     while true
         n_ed += true
         m = ed[k, l] + true
         ed[k, l] = -m
-        ux = pts[4 * m - 3]
-        uy = pts[4 * m - 2]
-        uz = pts[4 * m - 1]
+        ux = pts[m<<2 - 3]
+        uy = pts[m<<2 - 2]
+        uz = pts[m<<2 - 1]
         xc += ux
         yc += uy
         zc += uz
-        push!(v, SVector(ux, uy, uz))
+        push!(v, T(ux, uy, uz))
         l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
         k = m
         k == i && break
@@ -838,8 +854,8 @@ function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
     com = SVector(xc, yc, zc) / n_ed
     # Prepare gyration tensor
     for p in lastindex(v)-n_ed+1:lastindex(v)
-        vpx, vpy, vpz = v[p]
-        u = SVector(vpx, vpy, vpz) - com
+        vx, vy, vz = v[p]
+        u = SVector(vx, vy, vz) - com
         S += u .* u'
     end
     resize!(v, length(v) - n_ed)
@@ -849,14 +865,14 @@ function __append_normal!(v::Vector, vc, ed, nu, pts, i, j, k)
         if dot(nrm, com) < 0
             nrm = -nrm
         end
-        push!(v, nrm)
+        push!(v, T(nrm...))
     else
-        push!(v, SVector(0.0, 0.0, 0.0))
+        push!(v, T(0.0, 0.0, 0.0))
     end
     return v
 end
 
-function get_normals!(v::Vector, vc::CheckedVoronoiCell)
+function get_normals!(v::AbstractVector, vc::CheckedVoronoiCell)
     if_valid(vc, empty!(v)) do cell
         get_normals!(v, cell)
     end
@@ -979,7 +995,7 @@ end
 function face_areas(vc::AbstractVoronoiCell)
     v = Float64[]
     if_valid(vc, v) do cell
-        get_face_areas!(v, vc)
+        get_face_areas!(v, cell)
     end
 end
 
@@ -1051,7 +1067,7 @@ end
 
 function get_face_orders!(v::StdVector{Int32}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        __cxxwrap_face_orders!(v, vc)
+        __cxxwrap_face_orders!(v, cell)
         return v
     end
 end
