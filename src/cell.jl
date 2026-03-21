@@ -750,7 +750,6 @@ If `v` is a numeric vector, then normals are stored as 3 consecutive items. Othe
 get_normals!
 
 function get_normals!(v::AbstractVector{T}, vc::VoronoiCell) where {T}
-    PointType = __get_point_type(T)
     empty!(v)
     p = __get_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
@@ -759,117 +758,56 @@ function get_normals!(v::AbstractVector{T}, vc::VoronoiCell) where {T}
     for i in one(p)+true:p, j in OneTo(nu[i])
         k = ed[i, j] + true
         if k > zero(k)
-            __append_normal!(v, PointType, vc, ed, nu, pts, i, j, k)
+            nrm = __compute_normal!(ed, nu, pts, i, j, k)
+            __append_normal!(v, nrm)
         end
     end
     __reset_edges!(vc, p, nu, ed)
     return v
 end
 
-function __get_point_type(::Type{T}) where {T<:Real}
-    if promote_type(Float64, T) === T
-        return T
-    else
-        throw(ArgumentError("`get_normals!` requires container element type wider that `Float64`, got $T."))
-    end
-end
-
-function __get_point_type(::Type{>:SVector{3,Float64}})
-    return SVector{3,Float64}
-end
-
-function __get_point_type(::Type{NTuple{3,Float64}})
-    return NTuple{3,Float64}
-end
-
-function __append_normal!(v::AbstractVector{<:Real}, T, vc, ed, nu, pts, i, j, k)
-    orig_len = length(v)
+function __compute_normal!(ed, nu, pts, i, j, k)
     ed[i, j] = -k
     l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
     n_ed = one(k)
-    S = zero(SMatrix{3, 3, Float64, 9})
-    xc = pts[k<<2 - 3]
-    yc = pts[k<<2 - 2]
-    zc = pts[k<<2 - 1]
-    push!(v, xc, yc, zc)
+    S = Hermitian(zero(SMatrix{3, 3, Float64, 9}))
+    com = SVector{3,Float64}(pts[k<<2 - 3], pts[k<<2 - 2], pts[k<<2 - 1])
     while true
         n_ed += true
         m = ed[k, l] + true
         ed[k, l] = -m
-        ux = pts[m<<2 - 3]
-        uy = pts[m<<2 - 2]
-        uz = pts[m<<2 - 1]
-        xc += ux
-        yc += uy
-        zc += uz
-        push!(v, ux, uy, uz)
+        u = SVector{3,Float64}(pts[m<<2 - 3], pts[m<<2 - 2], pts[m<<2 - 1])
+        du = u - com
+        com += du / n_ed
+        dv = u - com
+        S += hermitianpart(du .* dv')
         l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
         k = m
         k == i && break
     end
-    com = SVector(xc, yc, zc) / n_ed
-    # Prepare gyration tensor
-    for p in orig_len:3:lastindex(v)-3
-        u = SVector(v[p+1], v[p+2], v[p+3]) - com
-        S += u .* u'
-    end
-    resize!(v, orig_len)
-    vals, vecs = eigen(Symmetric(S) / n_ed)
+    S /= n_ed
+    vals, vecs = eigen(S)
     if 1.0 - vals[1] / vals[2] > eps() * 10
         nrm = vecs[:, 1]
         if dot(nrm, com) < 0
             nrm = -nrm
         end
-        push!(v, nrm...)
     else
-        push!(v, 0.0, 0.0, 0.0)
+        nrm = SVector(0.0, 0.0, 0.0)
     end
-    return v
+    return nrm
 end
 
-function __append_normal!(v::AbstractVector, T, vc, ed, nu, pts, i, j, k)
-    ed[i, j] = -k
-    l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
-    n_ed = one(k)
-    S = zero(SMatrix{3, 3, Float64, 9})
-    xc = pts[k<<2 - 3]
-    yc = pts[k<<2 - 2]
-    zc = pts[k<<2 - 1]
-    push!(v, T(xc, yc, zc))
-    while true
-        n_ed += true
-        m = ed[k, l] + true
-        ed[k, l] = -m
-        ux = pts[m<<2 - 3]
-        uy = pts[m<<2 - 2]
-        uz = pts[m<<2 - 1]
-        xc += ux
-        yc += uy
-        zc += uz
-        push!(v, T(ux, uy, uz))
-        l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
-        k = m
-        k == i && break
-    end
-    com = SVector(xc, yc, zc) / n_ed
-    # Prepare gyration tensor
-    for p in lastindex(v)-n_ed+1:lastindex(v)
-        vx, vy, vz = v[p]
-        u = SVector(vx, vy, vz) - com
-        S += u .* u'
-    end
-    resize!(v, length(v) - n_ed)
-    vals, vecs = eigen(Symmetric(S) / n_ed)
-    if 1.0 - vals[1] / vals[2] > eps() * 10
-        nrm = vecs[:, 1]
-        if dot(nrm, com) < 0
-            nrm = -nrm
-        end
-        push!(v, T(nrm...))
-    else
-        push!(v, T(0.0, 0.0, 0.0))
-    end
-    return v
+function __append_normal!(v::AbstractVector{<:AbstractFloat}, nrm)
+    push!(v, nrm...)
+end
+
+function __append_normal!(v::AbstractVector{<:AbstractVector}, nrm)
+    push!(v, nrm)
+end
+
+function __append_normal!(v::AbstractVector{NTuple{3,Float64}}, nrm)
+    push!(v, (nrm...,))
 end
 
 function get_normals!(v::AbstractVector, vc::CheckedVoronoiCell)

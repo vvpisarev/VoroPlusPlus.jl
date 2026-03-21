@@ -1,7 +1,7 @@
 module VoroPlusPlus
     using Base: OneTo, @propagate_inbounds
     using CxxWrap
-    using LinearAlgebra: Symmetric, dot, eigen
+    using LinearAlgebra: Hermitian, dot, eigen, hermitianpart
     using Preferences
     using Printf: Format, format
     using StaticArrays
