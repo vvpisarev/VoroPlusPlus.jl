@@ -780,12 +780,12 @@ function __compute_normal!(ed, nu, pts, i, j, k)
         du = u - com
         com += du / n_ed
         dv = u - com
-        S += hermitianpart(du .* dv')
+        dS = du * dv'
+        S += Hermitian(dS + dS')
         l = __cycle_up(nu, ed[k, nu[k]+l]+true, m)
         k = m
         k == i && break
     end
-    S /= n_ed
     vals, vecs = eigen(S)
     if 1.0 - vals[1] / vals[2] > eps() * 10
         nrm = vecs[:, 1]
