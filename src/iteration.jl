@@ -37,60 +37,11 @@ function Base.iterate(con::Container)
     cell = CheckedVoronoiCell(con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
-    return (particle => cell), (__next!(itor), itor)
-end
-
-function Base.iterate(con::Container, (hasnext, itor))
-    if !hasnext
-        GC.gc(false)
-        return nothing
-    end
-    cell = CheckedVoronoiCell(con, itor)
-    particle_tup = particle_info(itor)
-    particle = Particle(con, particle_tup)
-    return (particle => cell), (__next!(itor), itor)
-end
-
-struct Unsafe{C<:AbstractContainer}<:AbstractContainer
-    container::C
-
-    Unsafe{C}(con::C) where {C<:AbstractContainer} = new{C}(con)
-end
-
-function Unsafe(con::Unsafe)
-    return Unsafe(con.container)
-end
-
-"""
-    Unsafe(con::AbstractContainer)
-
-A wrapper over `AbstractContainer` which reuses the same VoronoiCell object upon iteration.
-"""
-function Unsafe(con::C) where {C<:AbstractContainer}
-    return Unsafe{C}(con)
-end
-
-__raw(con::Unsafe) = __raw(con.container)
-__raw_type(::Type{Unsafe{C}}) where {C} = __raw_type(C)
-
-ordering(con::Unsafe) = ordering(con.container)
-
-function Base.iterate(ucon::Unsafe)
-    con = ucon.container
-    itor = __container_iterator(__raw(con), ordering(con))
-    !__start!(itor) && return nothing
-    cell = CheckedVoronoiCell(con, itor)
-    particle_tup = particle_info(itor)
-    particle = Particle(con, particle_tup)
     return (particle => cell), (__next!(itor), itor, cell)
 end
 
-function Base.iterate(ucon::Unsafe, (hasnext, itor, cell))
-    con = ucon.container
-    if !hasnext
-        GC.gc(false)
-        return nothing
-    end
+function Base.iterate(con::Container, (hasnext, itor, cell))
+    hasnext || return nothing
     cell = compute_cell!(cell, con, itor)
     particle_tup = particle_info(itor)
     particle = Particle(con, particle_tup)
@@ -123,34 +74,7 @@ function eachparticle(con::AbstractContainer)
     return EachParticle(con)
 end
 
-function Unsafe(cells::EachCell)
-    return EachCell(Unsafe(cells.con))
-end
-
-function Unsafe(pts::EachParticle)
-    return EachParticle(Unsafe(pts.con))
-end
-
 function Base.iterate(con::EachCell)
-    raw_con = __raw(con.con)
-    ord = ordering(con.con)
-    itor = __container_iterator(raw_con, ord)
-    !__start!(itor) && return nothing
-    cell = CheckedVoronoiCell(raw_con, itor)
-    return cell, (__next!(itor), itor)
-end
-
-function Base.iterate(con::EachCell, (hasnext, itor))
-    if !hasnext
-        GC.gc(false)
-        return nothing
-    end
-    raw_con = __raw(con.con)
-    cell = CheckedVoronoiCell(raw_con, itor)
-    return cell, (__next!(itor), itor)
-end
-
-function Base.iterate(con::EachCell{<:Unsafe})
     raw_con = __raw(con.con)
     ord = ordering(con.con)
     itor = __container_iterator(raw_con, ord)
@@ -159,7 +83,7 @@ function Base.iterate(con::EachCell{<:Unsafe})
     return cell, (__next!(itor), itor, cell)
 end
 
-function Base.iterate(con::EachCell{<:Unsafe}, (hasnext, itor, cell))
+function Base.iterate(con::EachCell, (hasnext, itor, cell))
     hasnext || return nothing
     raw_con = __raw(con.con)
     cell = compute_cell!(cell, raw_con, itor)

@@ -11,7 +11,7 @@
     vc, = VoroPlusPlus.eachcell(con)
 
     # Output the Voronoi cell to a file, in the gnuplot format
-    VoroPlusPlus.__cxxwrap_draw_gnuplot(vc.cell, 0.0, 0.0, 0.0, "single_cell.gnu")
+    VoroPlusPlus.__cxxwrap_draw_gnuplot(vc[], 0.0, 0.0, 0.0, "single_cell.gnu")
     cell_str = let buf = IOBuffer()
         draw_gnuplot(buf, vc)
         String(take!(buf))
@@ -20,7 +20,7 @@
 
     dx, dy, dz = rand(rng, Float64, 3)
 
-    VoroPlusPlus.__cxxwrap_draw_gnuplot(vc.cell, dx, dy, dz, "single_cell_displaced.gnu")
+    VoroPlusPlus.__cxxwrap_draw_gnuplot(vc[], dx, dy, dz, "single_cell_displaced.gnu")
     cell_str = let buf = IOBuffer()
         draw_gnuplot(buf, vc, (dx, dy, dz))
         String(take!(buf))
@@ -56,7 +56,7 @@ end
     vc, = VoroPlusPlus.eachcell(con)
 
     # Output the Voronoi cell to a file, in the POV-Ray format
-    VoroPlusPlus.__cxxwrap_draw_pov(vc.cell, 0.0, 0.0, 0.0, "single_cell.pov")
+    VoroPlusPlus.__cxxwrap_draw_pov(vc[], 0.0, 0.0, 0.0, "single_cell.pov")
     cell_str = let buf = IOBuffer()
         draw_pov(buf, vc)
         String(take!(buf))
@@ -64,7 +64,7 @@ end
     @test read("single_cell.pov", String) == cell_str
 
     # Output the Voronoi cell to a file, in the POV-Ray Mesh format
-    VoroPlusPlus.__cxxwrap_draw_pov_mesh(vc.cell, 0.0, 0.0, 0.0, "single_cell_mesh.pov")
+    VoroPlusPlus.__cxxwrap_draw_pov_mesh(vc[], 0.0, 0.0, 0.0, "single_cell_mesh.pov")
     cell_str = let buf = IOBuffer()
         draw_pov_mesh(buf, vc)
         String(take!(buf))
@@ -73,14 +73,14 @@ end
 
     dx, dy, dz = rand(rng, Float64, 3)
 
-    VoroPlusPlus.__cxxwrap_draw_pov(vc.cell, dx, dy, dz, "single_cell_displaced.pov")
+    VoroPlusPlus.__cxxwrap_draw_pov(vc[], dx, dy, dz, "single_cell_displaced.pov")
     cell_str = let buf = IOBuffer()
         draw_pov(buf, vc, (dx, dy, dz))
         String(take!(buf))
     end
     @test read("single_cell_displaced.pov", String) == cell_str
 
-    VoroPlusPlus.__cxxwrap_draw_pov_mesh(vc.cell, dx, dy, dz, "single_cell_displaced_mesh.pov")
+    VoroPlusPlus.__cxxwrap_draw_pov_mesh(vc[], dx, dy, dz, "single_cell_displaced_mesh.pov")
     cell_str = let buf = IOBuffer()
         draw_pov_mesh(buf, vc, (dx, dy, dz))
         String(take!(buf))

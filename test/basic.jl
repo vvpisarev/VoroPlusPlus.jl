@@ -155,14 +155,11 @@ end
         volume(cell)
     end
 
-    vvol_unsafe = sum(VoroPlusPlus.Unsafe(con)) do (part, cell)
-        volume(cell)
-    end
     @info "Container volume" cvol
     @info "Voronoi volume" vvol
     @info "Difference" cvol - vvol
     @test isapprox(vvol, cvol; atol=1e-8)
-    @test isapprox(vvol_unsafe, cvol; atol=1e-8)
+
     neigh_vec = Int32[]
     neigh_std_vec = StdVector{Int32}()
     for (part, cell) in con
@@ -290,10 +287,10 @@ end
         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
     )
 
-    @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel))) ≈ 1000.0
-    @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_pbc))) ≈ 1000.0
-    @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_any))) ≈ 1000.0
-    @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_real))) ≈ 1000.0
+    @test sum(volume, eachcell(tessel)) ≈ 1000.0
+    @test sum(volume, eachcell(tessel_pbc)) ≈ 1000.0
+    @test sum(volume, eachcell(tessel_from_any)) ≈ 1000.0
+    @test sum(volume, eachcell(tessel_from_real)) ≈ 1000.0
 end
 
 # @testset "Radical tessellation from an array" begin

@@ -485,7 +485,7 @@ function draw_gnuplot(
             #cells_file = Libc.FILE(cells_io)
             pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
             open(pts_path, "w") do pts_io
-                for (pt, cell) in Unsafe(con)
+                for (pt, cell) in con
                     if_valid(cell) do vc
                         (; id, pos) = pt
                         dx, dy, dz = pos
@@ -501,7 +501,7 @@ function draw_gnuplot(
         cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
         open(cells_path, "w") do cells_io
             #cells_file = Libc.FILE(cells_io)
-            for (pt, cell) in Unsafe(con)
+            for (pt, cell) in con
                 if_valid(cell) do vc
                     (; id, pos) = pt
                     dx, dy, dz = pos

@@ -45,9 +45,9 @@ end
 
 Voronoi cell with added validity flag.
 """
-struct CheckedVoronoiCell<:AbstractVoronoiCell
-    cell::VoronoiCellAllocated
-    valid::Bool
+mutable struct CheckedVoronoiCell<:AbstractVoronoiCell
+    _cell::VoronoiCellAllocated
+    _valid::Bool
 end
 
 function CheckedVoronoiCell(con::AbstractRawContainer, itor)
@@ -58,9 +58,9 @@ end
 
 CheckedVoronoiCell(con::AbstractContainer, itor) = CheckedVoronoiCell(__raw(con), itor)
 
-Base.copy(vc::CheckedVoronoiCell) = CheckedVoronoiCell(copy(vc.cell), vc.valid)
+Base.copy(vc::CheckedVoronoiCell) = CheckedVoronoiCell(copy(vc._cell), vc._valid)
 
-__raw(vc::CheckedVoronoiCell) = vc.cell
+__raw(vc::CheckedVoronoiCell) = vc._cell
 __raw(vc::VoronoiCell) = vc
 
 """
@@ -68,7 +68,7 @@ __raw(vc::VoronoiCell) = vc
 
 Check if Voronoi cell is computed properly.
 """
-isvalid(vc::CheckedVoronoiCell) = vc.valid
+isvalid(vc::CheckedVoronoiCell) = vc._valid
 isvalid(::VoronoiCell) = true
 
 """
@@ -78,8 +78,8 @@ If `vc` valid flag is `true`, apply function `fn` to `vc`, else return `default`
 
 # Examples
 
-    if_valid(cell, 0.0) do vc
-        volume(vc)
+    if_valid(vc, 0.0) do cell
+        volume(cell)
     end
 """
 function if_valid(fn, vc::CheckedVoronoiCell, default=nothing)
@@ -121,12 +121,67 @@ function if_valid(fn, vc::VoronoiCell, default=nothing)
 end
 
 """
+    getindex(vc::CheckedVoronoiCell)
+
+Retrieve the cell object from `vc`.
+
+**Warning**: `vc` keeps the ownership of the object, so that the returned object may be
+    implicitly mutated during operations on `vc`.
+
+# Returns
+- `VoronoiCell`: the object held in `vc`
+
+# Throws
+- `ArgumentError`: if `vc` does not hold a valid `VoronoiCell` object
+"""
+function Base.getindex(vc::CheckedVoronoiCell)
+    if isvalid(vc)
+        return vc._cell
+    else
+        throw(ArgumentError("Cannot dereference an invalidated Voronoi cell"))
+    end
+end
+
+"""
+    take!(vc::CheckedVoronoiCell)
+
+Retrieve the cell object from `vc` and take ownership. `vc` is invalidated after this
+    operation.
+
+# Returns
+- `VoronoiCell`: the object held in `vc`
+
+# Throws
+- `ArgumentError`: if `vc` does not hold a valid `VoronoiCell` object
+"""
+function Base.take!(vc::CheckedVoronoiCell)
+    if vc._valid
+        cell = vc._cell
+        vc._valid = false
+        tol = __get_tol(vc)
+        max_len_sq = tol / (10.0 * eps(Float64))
+        vc._cell = VoronoiCell(max_len_sq)
+        return cell
+    else
+        throw(ArgumentError("Cannot take a value from an invalidated Voronoi cell"))
+    end
+end
+
+function Base.convert(::Type{<:VoronoiCell}, CheckedVoronoiCell)
+    if vc._valid
+        return copy(vc._cell)
+    else
+        throw(ArgumentError("Cannot take a value from an invalidated Voronoi cell"))
+    end
+end
+
+"""
     volume(vc::AbstractVoronoiCell)
 
 Return the volume of the Voronoi cell. For invalid cells, return 0.0.
 """
 function volume(vc::CheckedVoronoiCell)
-    isvalid(vc) ? volume(vc.cell) : 0.0
+    isvalid(vc) ? volume(vc._cell) : 0.0
 end
 
 """
@@ -135,7 +190,7 @@ end
 Return the number of faces of the Voronoi cell. For invalid cells, return zero.
 """
 function number_of_faces(vc::CheckedVoronoiCell)
-    isvalid(vc) ? number_of_faces(vc.cell) : zero(Int32)
+    isvalid(vc) ? number_of_faces(vc._cell) : zero(Int32)
 end
 
 """
@@ -144,7 +199,7 @@ end
 Return the number of edges of the Voronoi cell. For invalid cells, return zero.
 """
 function number_of_edges(vc::CheckedVoronoiCell)
-    isvalid(vc) ? number_of_edges(vc.cell) : zero(Int32)
+    isvalid(vc) ? number_of_edges(vc._cell) : zero(Int32)
 end
 
 """
@@ -153,8 +208,8 @@ end
 Return the centroid vector of a valid Voronoi cell or a zero vector if the cell is invalid.
 """
 function centroid(vc::AbstractVoronoiCell)
-    if_valid(vc, SVector(0.0, 0.0, 0.0)) do vc
-        return SVector{3,Float64}(__cxxwrap_centroid(vc))
+    if_valid(vc, SVector(0.0, 0.0, 0.0)) do cell
+        return SVector{3,Float64}(__cxxwrap_centroid(cell))
     end
 end
 
@@ -214,7 +269,7 @@ function reset_to_box!(vc::VoronoiCell, (u1, v1, w1), (u2, v2, w2))
 end
 
 function reset_to_box!(vc::CheckedVoronoiCell, (u1, v1, w1), (u2, v2, w2))
-    reset_to_box!(vc.cell, (u1, v1, w1), (u2, v2, w2))
+    reset_to_box!(vc._cell, (u1, v1, w1), (u2, v2, w2))
     return vc
 end
 
@@ -245,7 +300,7 @@ function reset_to_tetrahedron!(
     (u3, v3, w3),
     (u4, v4, w4)
 )
-    reset_to_tetrahedron!(vc.cell, (u1, v1, w1), (u2, v2, w2), (u3, v3, w3), (u4, v4, w4))
+    reset_to_tetrahedron!(vc._cell, (u1, v1, w1), (u2, v2, w2), (u3, v3, w3), (u4, v4, w4))
     return vc
 end
 
@@ -262,7 +317,7 @@ function reset_to_octahedron!(vc::VoronoiCell, r::Real)
 end
 
 function reset_to_octahedron!(vc::CheckedVoronoiCell, r::Real)
-    reset_to_octahedron!(vc.cell, r)
+    reset_to_octahedron!(vc._cell, r)
     return vc
 end
 
@@ -285,16 +340,16 @@ function cut_by_particle_position!(vc::VoronoiCell, pos)
 end
 
 function cut_by_particle_position!(vc::CheckedVoronoiCell, pos)
-    valid = if length(pos) == 3
+    vc._valid = if length(pos) == 3
         x, y, z = pos
         u, v, w = Float64.((x, y, z))
-        __cxxwrap_nplane!(vc.cell, u, v, w, zero(Int32))
+        __cxxwrap_nplane!(vc._cell, u, v, w, zero(Int32))
     elseif length(pos) == 4
         x, y, z, rsq = pos
         u, v, w, dsq = Float64.((x, y, z, rsq))
-        __cxxwrap_nplane!(vc.cell, u, v, w, dsq, zero(Int32))
+        __cxxwrap_nplane!(vc._cell, u, v, w, dsq, zero(Int32))
     end
-    return CheckedVoronoiCell(vc.cell, valid)
+    return vc
 end
 
 function compute_cell!(
@@ -305,7 +360,9 @@ function compute_cell!(
 end
 
 function compute_cell!(vc::CheckedVoronoiCell, con::AbstractRawContainer, itr)
-    compute_cell!(vc.cell, con, itr)
+    cell_is_valid = __cxxwrap_compute_cell!(vc._cell, con, itr)
+    vc._valid = cell_is_valid
+    return vc
 end
 
 function compute_cell!(vc::AbstractVoronoiCell, con::AbstractContainer, itr)
@@ -610,8 +667,8 @@ end
     ::Type{Vector{T}}, vc::AbstractVoronoiCell, offset...
 ) where {T}
     pos = T[]
-    if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc, offset...)
+    if_valid(vc, pos) do cell
+        vertex_positions!(pos, cell, offset...)
     end
 end
 
@@ -619,8 +676,8 @@ end
     ::Type{Vector}, vc::AbstractVoronoiCell, offset...
 )
     pos = SVector{3,Float64}[]
-    if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc, offset...)
+    if_valid(vc, pos) do cell
+        vertex_positions!(pos, cell, offset...)
     end
 end
 
@@ -635,8 +692,8 @@ The returned object is a `Vector{SVector{3,Float64}}`.
 """
 @propagate_inbounds function vertex_positions(vc::AbstractVoronoiCell, offset...)
     pos = SVector{3,Float64}[]
-    if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc, offset...)
+    if_valid(vc, pos) do cell
+        vertex_positions!(pos, cell, offset...)
     end
 end
 
@@ -653,8 +710,8 @@ Return the positions of cell vertices, optionally shifted by `offset`, as a 3xN 
 ) where {T}
     len = isvalid(vc) ? __get_p(vc) : zero(Int32)
     pos = Matrix{T}(undef, 3, len)
-    if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc, offset...)
+    if_valid(vc, pos) do cell
+        vertex_positions!(pos, cell, offset...)
         return pos
     end
 end
@@ -663,8 +720,8 @@ end
     ::Type{Matrix}, vc::AbstractVoronoiCell, offset...
 )
     pos = Float64[]
-    if_valid(vc, pos) do vc
-        vertex_positions!(pos, vc, offset...)
+    if_valid(vc, pos) do cell
+        vertex_positions!(pos, cell, offset...)
     end
     return reshape(pos, 3, :)
 end
@@ -675,11 +732,11 @@ end
 Fill `v` with neighbor IDs of the cell `vc`.
 """
 function get_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
-    if_valid(vc, empty!(v)) do vc
-        p = __get_p(vc)
-        nu = UnsafeIndexable(__get_nu(vc))
-        ed = UnsafeIndexable(__get_ed(vc))
-        ne = UnsafeIndexable(__get_ne(vc))
+    if_valid(vc, empty!(v)) do cell
+        p = __get_p(cell)
+        nu = UnsafeIndexable(__get_nu(cell))
+        ed = UnsafeIndexable(__get_ed(cell))
+        ne = UnsafeIndexable(__get_ne(cell))
         for i in one(p)+true:p
             nu_i = nu[i]
             for j in OneTo(nu_i)
@@ -698,17 +755,17 @@ function get_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
                 end
             end
         end
-        __reset_edges!(vc, p, nu, ed)
+        __reset_edges!(cell, p, nu, ed)
         return v
     end
 end
 
 function append_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
-    if_valid(vc, v) do vc
-        p = __get_p(vc)
-        nu = UnsafeIndexable(__get_nu(vc))
-        ed = UnsafeIndexable(__get_ed(vc))
-        ne = UnsafeIndexable(__get_ne(vc))
+    if_valid(vc, v) do cell
+        p = __get_p(cell)
+        nu = UnsafeIndexable(__get_nu(cell))
+        ed = UnsafeIndexable(__get_ed(cell))
+        ne = UnsafeIndexable(__get_ne(cell))
         for i in one(p)+true:p
             nu_i = nu[i]
             for j in OneTo(nu_i)
@@ -727,7 +784,7 @@ function append_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell
                 end
             end
         end
-        __reset_edges!(vc, p, nu, ed)
+        __reset_edges!(cell, p, nu, ed)
         return v
     end
 end
@@ -829,11 +886,11 @@ normals(vc::AbstractVoronoiCell) = get_normals!(SVector{3,Float64}[], vc)
 Fill `v` with face perimeters of cell `vc`.
 """
 function get_face_perimeters!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
-    if_valid(vc, empty!(v)) do vc
-        p = __get_p(vc)
-        nu = UnsafeIndexable(__get_nu(vc))
-        ed = UnsafeIndexable(__get_ed(vc))
-        pts = UnsafeIndexable(__get_pts(vc))
+    if_valid(vc, empty!(v)) do cell
+        p = __get_p(cell)
+        nu = UnsafeIndexable(__get_nu(cell))
+        ed = UnsafeIndexable(__get_ed(cell))
+        pts = UnsafeIndexable(__get_pts(cell))
         for i in one(p)+true:p, j in OneTo(nu[i])
             k = ed[i, j] + true
             if k > zero(k)
@@ -857,7 +914,7 @@ function get_face_perimeters!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCe
                 push!(v, 0.5 * perim)
             end
         end
-        __reset_edges!(vc, p, nu, ed)
+        __reset_edges!(cell, p, nu, ed)
         return v
     end
 end
@@ -938,11 +995,11 @@ function face_areas(vc::AbstractVoronoiCell)
 end
 
 function get_face_vertices!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
-    if_valid(vc, empty!(v)) do vc
+    if_valid(vc, empty!(v)) do cell
         vp = 1
-        p = __get_p(vc)
-        nu = UnsafeIndexable(__get_nu(vc))
-        ed = UnsafeIndexable(__get_ed(vc))
+        p = __get_p(cell)
+        nu = UnsafeIndexable(__get_nu(cell))
+        ed = UnsafeIndexable(__get_ed(cell))
 
         for i in one(p)+true:p, j in OneTo(nu[i])
             k = ed[i, j] + true
@@ -964,7 +1021,7 @@ function get_face_vertices!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCel
                 vp = vn + true
             end
         end
-        __reset_edges!(vc, p, nu, ed)
+        __reset_edges!(cell, p, nu, ed)
         return v
     end
 end
@@ -977,10 +1034,10 @@ function get_face_vertices!(v::StdVector{Int32}, vc::AbstractVoronoiCell)
 end
 
 function get_face_orders!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
-    if_valid(vc, empty!(v)) do vc
+    if_valid(vc, empty!(v)) do cell
         p = __get_p(vc)
-        nu = UnsafeIndexable(__get_nu(vc))
-        ed = UnsafeIndexable(__get_ed(vc))
+        nu = UnsafeIndexable(__get_nu(cell))
+        ed = UnsafeIndexable(__get_ed(cell))
         for i in one(p)+true:p, j in OneTo(nu[i])
             k = ed[i, j] + true
             if k > zero(k)
@@ -998,7 +1055,7 @@ function get_face_orders!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
                 push!(v, q)
             end
         end
-        __reset_edges!(vc, p, nu, ed)
+        __reset_edges!(cell, p, nu, ed)
         return v
     end
 end
