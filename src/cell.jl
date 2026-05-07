@@ -21,7 +21,7 @@ Create a new Voronoi cell based on the size of `con`.
 VoronoiCell(con::Container) = VoronoiCell(__raw(con))
 
 function Base.copyto!(dest::VoronoiCell, src::VoronoiCell)
-    __cxxwrap_copyto!(dest, src)
+    __cxxwrap_copy!(dest, src)
     return dest
 end
 
@@ -158,7 +158,7 @@ function Base.take!(vc::CheckedVoronoiCell)
     if vc._valid
         cell = vc._cell
         vc._valid = false
-        tol = __get_tol(vc)
+        tol = __get_tol(cell)
         max_len_sq = tol / (10.0 * eps(Float64))
         vc._cell = VoronoiCell(max_len_sq)
         return cell
@@ -167,7 +167,7 @@ function Base.take!(vc::CheckedVoronoiCell)
     end
 end
 
-function Base.convert(::Type{<:VoronoiCell}, CheckedVoronoiCell)
+function Base.convert(::Type{<:VoronoiCell}, vc::CheckedVoronoiCell)
     if vc._valid
         return copy(vc._cell)
     else

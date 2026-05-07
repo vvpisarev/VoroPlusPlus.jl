@@ -38,8 +38,15 @@
     cells_u = [cell for (_, cell) in con]
     @test all(cells_u) do cell; cell === cells_u[1]; end
 
-    cells_u = collect(eachcell(con))
-    @test all(cells_u) do cell; cell === cells_u[1]; end
+    cells_s = [take!(cell) for (_, cell) in con]
+    @test all(enumerate(cells_s)) do (k, cell); k == 1 || cell !== cells_s[1]; end
+
+    # test conversion from CheckedVoronoiCell to VoronoiCell / VoronoiCellAllocated
+    cells_1 = foldl(push!, eachcell(con); init=VoroPlusPlus.VoronoiCell[])
+    @test all(enumerate(cells_1)) do (k, cell); k == 1 || cell !== cells_1[1]; end
+
+    cells_2 = foldl(push!, eachcell(con); init=VoroPlusPlus.VoronoiCellAllocated[])
+    @test all(enumerate(cells_2)) do (k, cell); k == 1 || cell !== cells_2[1]; end
 
     @test eltype(con) == Pair{eltype(eachparticle(con)), eltype(eachcell(con))}
 end
