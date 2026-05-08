@@ -12,6 +12,12 @@ foreach(
     if endswith(path, r".gnu|.txt|.pov|.custom1|.custom2|.custom3|.points|.vec|.vol")
 )
 
+foreach(
+    rm,
+    joinpath("./image_data", path) for path in readdir("./image_data")
+    if endswith(path, r".gnu|.txt|pts.pov|cells.pov|domain.pov")
+)
+
 #Implemented
 include("basic.jl")
 include("cell_statistics.jl")

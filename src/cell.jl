@@ -415,30 +415,6 @@ function __reset_edges!(
 end
 
 """
-    __test_vector!(v::Vector, T::DataType)
-
-Test if a vector is suitable for storing datatype `T`.
-"""
-function __test_vector(v::Vector{<:Number})
-    try
-        push!(v, Float64(pi))
-        pop!(v)
-    catch
-        error("Cannot store Float64 items in the vector")
-    end
-end
-
-function __test_vector(v::Vector{T}) where {T}
-    try
-        val = T(SVector{3,Float64}(pi, pi, pi))
-        push!(v, val)
-        pop!(v)
-    catch
-        error("Cannot store SVector{3,Float64} items in the vector")
-    end
-end
-
-"""
     translate!(vc::AbstractVoronoiCell, d)
 
 Translate the vertices of the Voronoi cell by a given vector.

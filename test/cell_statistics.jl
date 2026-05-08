@@ -20,7 +20,7 @@
     @test isapprox(
         normals(vc),
         SVector{3,Float64}[
-            (0,0,-1), (1,-0,0), (0,-1,0), (-1,-0,-0), (0,1,-0), (0.707107,0.707107,-0), (0,0,1)
+            (0,0,-1), (1,-0,0), (0,-1,0), (-1,-0,-0), (0,1,-0), (sqrt(0.5),sqrt(0.5),-0), (0,0,1)
         ];
         rtol=1e-4
     )
@@ -41,5 +41,4 @@
     @test isapprox(face_areas(vc), [3.5, 2, 4, 4, 2, 2.82843, 3.5]; atol=1e-5)
 
     @test isapprox(centroid(vc), [-2/21, -2/21, 0])
-    #@info get_face_orders!(Int[], vc)
 end

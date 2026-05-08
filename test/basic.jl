@@ -4,10 +4,6 @@
     # Initialize the Voronoi cell to be a cube of side length 2, centered
     # on the origin
     vc = voronoicell_box((-1, -1, -1), (1, 1, 1))
-    @info "Vertex positions"
-    foreach(println, vertex_positions(vc))
-
-    @info "" volume(vc)
 
     # Cut the cell by 250 random planes which are all a distance 1 away
     # from the origin, to make an approximation to a sphere
@@ -17,15 +13,11 @@
         z = 2 * rand(rng) - 1
         rsq = x * x + y * y + z * z
         if rsq > 0.01 && rsq < 1
-            r = inv(sqrt(rsq))
-            x *= r
-            y *= r
-            z *= r
+            x, y, z = (x, y, z) .* inv(sqrt(rsq))
             cut_by_particle_position!(vc, (x, y, z, 1.0))
         end
     end
 
-    @info "" volume(vc) 4/3 * pi / 8
     @test 0 < volume(vc) - 4/3 * pi / 8 < 0.05
 end
 
@@ -41,19 +33,13 @@ end
     cut_by_particle_position!(vc, (1, -1, -1))
     cut_by_particle_position!(vc, (-1, 1, -1))
     cut_by_particle_position!(vc, (-1, -1, 1))
-    @info "Tetrahedron volume" volume(vc)
-    @test isapprox(volume(vc), 9.0; atol=1e-8)
-    tet = let buf = IOBuffer()
-        draw_gnuplot(buf, vc)
-        String(take!(buf))
-    end
 
-    @info "" tet
+    @test isapprox(volume(vc), 9.0; atol=1e-8)
 
     # Create a cube. Since this is the default shape
     # we don't need to do any plane cutting.
     reset_to_box!(vc, (-1, -1, -1), (1, 1, 1))
-    @info "Cube volume" volume(vc)
+
     @test isapprox(volume(vc), 8.0; atol=1e-8)
 
     # Create an octahedron
@@ -66,7 +52,7 @@ end
     cut_by_particle_position!(vc, (-1, 1, -1))
     cut_by_particle_position!(vc, (1, -1, -1))
     cut_by_particle_position!(vc, (-1, -1, -1))
-    @info "Octahedron volume" volume(vc)
+
     @test isapprox(volume(vc), 4.5; atol=1e-8)
 
     # Create a dodecahedron
@@ -87,7 +73,7 @@ end
     r_in = sqrt(1 + Phi^2) / 2
     a = 2 * sqrt(3 - Phi) / Phi^2 * r_in
     vol_ref = 5 * Phi^3 / (6 - 2 * Phi) * a^3
-    @info "Dodecahedron volume" volume(vc)
+
     @test isapprox(volume(vc), vol_ref; atol=1e-8)
 
     # Create an icosahedron
@@ -116,7 +102,7 @@ end
     r_in = sqrt(3) / 2
     a = 2 * sqrt(3) / Phi^2 * r_in
     vol_ref = 5 * Phi^2 / 6 * a^3
-    @info "Icosahedron volume" volume(vc)
+
     @test isapprox(volume(vc), vol_ref; atol=1e-8)
 end
 
@@ -126,6 +112,7 @@ end
 
     (x_min, x_max) = (y_min, y_max) = (z_min, z_max) = -1, 1
     cvol = (x_max - x_min) * (y_max - y_min) * (z_max - z_min)
+    lx, ly, lz = (x_max, y_max, z_max) .- (x_min, y_min, z_min)
 
     n_x = n_y = n_z = 6
 
@@ -144,10 +131,8 @@ end
 
     # Randomly add particles into the container
     for i in 1:nparticles
-        x = x_min + rand(rng) * (x_max - x_min)
-        y = y_min + rand(rng) * (y_max - y_min)
-        z = z_min + rand(rng) * (z_max - z_min)
-        add_point!(con, i - 1, (x, y, z))
+        x, y, z = (x_min, y_min, z_min) .+ (rand(rng), rand(rng), rand(rng)) .* (lx, ly, lz)
+        add_point!(con, i, (x, y, z))
     end
 
     # Sum up the volumes, and check that this matches the container volume
@@ -155,9 +140,6 @@ end
         volume(cell)
     end
 
-    @info "Container volume" cvol
-    @info "Voronoi volume" vvol
-    @info "Difference" cvol - vvol
     @test isapprox(vvol, cvol; atol=1e-8)
 
     neigh_vec = Int32[]
@@ -165,12 +147,6 @@ end
     for (part, cell) in con
         @test get_neighbors!(neigh_vec, cell) == get_neighbors!(neigh_std_vec, cell)
     end
-
-    # Output the particle positions in gnuplot format
-    #@test draw_particles(con, "random_points_p.gnu") === nothing
-
-    # Output the Voronoi cells in gnuplot format
-    #@test draw_cells_gnuplot(con, "random_points_v.gnu") === nothing
 end
 
 @testset "File import" begin
@@ -292,48 +268,3 @@ end
     @test sum(volume, eachcell(tessel_from_any)) ≈ 1000.0
     @test sum(volume, eachcell(tessel_from_real)) ≈ 1000.0
 end
-
-# @testset "Radical tessellation from an array" begin
-#     # Set up constants for the container geometry
-#     x_min, x_max = -3.0, 3.0
-#     y_min, y_max = -3.0, 3.0
-#     z_min, z_max = 0.0, 6.0
-
-#     six_cube_positions = map(eachline("data/pack_six_cube_poly")) do ln
-#         id, x, y, z, r = (
-#             parse(T, str) for (T, str) in
-#             zip((Int, Float64, Float64, Float64, Float64), eachsplit(ln))
-#         )
-#         SVector(x, y, z, r)
-#     end
-
-#     tessel = voronoi_tessellation(
-#         six_cube_positions
-#         ;
-#         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
-#     )
-
-#     tessel_pbc = voronoi_tessellation(
-#         six_cube_positions
-#         ;
-#         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
-#         periodic=(true, true, true)
-#     )
-
-#     tessel_from_any = voronoi_tessellation(
-#         Vector{Any}(six_cube_positions)
-#         ;
-#         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
-#     )
-
-#     tessel_from_real = voronoi_tessellation(
-#         reinterpret(Float64, six_cube_positions)
-#         ;
-#         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max))
-#     )
-
-#     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel))) ≈ 216.0
-#     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_pbc))) ≈ 216.0
-#     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_any))) ≈ 216.0
-#     @test sum(volume, eachcell(VoroPlusPlus.Unsafe(tessel_from_real))) ≈ 216.0
-# end

@@ -35,5 +35,11 @@ test/*.vec
 test/*.vol
 test/pack*.*
 test/pack*
+test/image_data/*.pts.*
+test/image_data/*.domain.*
+test/image_data/*.cells.*
+test/image_data/single_cell*
+test/image_data/*.gnu
+test/image_data/*.png
 
 .vscode
