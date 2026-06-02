@@ -369,6 +369,56 @@ function compute_cell!(vc::AbstractVoronoiCell, con::AbstractContainer, itr)
     return compute_cell!(vc, __raw(con), itr)
 end
 
+function compute_ghost_cell!(
+    vc::CheckedVoronoiCell,
+    con::Container{<:RawContainer},
+    (x, y, z)
+)
+    cell = __raw(vc)
+    raw_con = __raw(con)
+    xx, yy, zz = Float64.((x, y, z))
+
+    vc._valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz)
+    return vc
+end
+
+function compute_ghost_cell!(
+    vc::CheckedVoronoiCell,
+    con::Container{<:RawContainerPoly},
+    (x, y, z, r)
+)
+    cell = __raw(vc)
+    raw_con = __raw(con)
+    xx, yy, zz, rr = Float64.((x, y, z, r))
+
+    vc._valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz, rr)
+    return vc
+end
+
+function compute_ghost_cell!(
+    cell::VoronoiCell,
+    con::Container{<:RawContainer},
+    (x, y, z)
+)
+    raw_con = __raw(con)
+    xx, yy, zz = Float64.((x, y, z))
+
+    valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz)
+    return CheckedVoronoiCell(cell, valid)
+end
+
+function compute_ghost_cell!(
+    cell::VoronoiCell,
+    con::Container{<:RawContainerPoly},
+    (x, y, z, r)
+)
+    raw_con = __raw(con)
+    xx, yy, zz, rr = Float64.((x, y, z, r))
+
+    valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz, rr)
+    return CheckedVoronoiCell(cell, valid)
+end
+
 #############################
 
 __get_nu(vc::VoronoiCell) = reinterpret(Ptr{Int32}, __cxxwrap_get_nu(vc))
@@ -782,8 +832,9 @@ If `v` is a numeric vector, then normals are stored as 3 consecutive items. Othe
 """
 get_normals!
 
-function get_normals!(v::AbstractVector{T}, vc::VoronoiCell) where {T}
+function get_normals!(v::AbstractVector, vc::VoronoiCell)
     empty!(v)
+    tol = __get_tol(vc)
     p = __get_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
@@ -791,7 +842,7 @@ function get_normals!(v::AbstractVector{T}, vc::VoronoiCell) where {T}
     for i in one(p)+true:p, j in OneTo(nu[i])
         k = ed[i, j] + true
         if k > zero(k)
-            nrm = __compute_normal!(ed, nu, pts, i, j, k)
+            nrm = __compute_normal!(ed, nu, pts, i, j, k, tol)
             __append_normal!(v, nrm)
         end
     end
@@ -799,7 +850,7 @@ function get_normals!(v::AbstractVector{T}, vc::VoronoiCell) where {T}
     return v
 end
 
-function __compute_normal!(ed, nu, pts, i, j, k)
+function __compute_normal!(ed, nu, pts, i, j, k, tol)
     ed[i, j] = -k
     l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
     n_ed = one(k)
@@ -820,7 +871,9 @@ function __compute_normal!(ed, nu, pts, i, j, k)
         k == i && break
     end
     vals, vecs = eigen(S)
-    if 1.0 - vals[1] / vals[2] > eps() * 10
+
+    # Check threshold for numerical planarity
+    if vals[1] < tol && 1.0 - vals[1] / vals[2] > tol
         nrm = vecs[:, 1]
         if dot(nrm, com) < 0
             nrm = -nrm
@@ -923,10 +976,10 @@ Fill `v` with face areas of cell `vc`.
 """
 function get_face_areas!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        p = __get_p(vc)
-        nu = UnsafeIndexable(__get_nu(vc))
-        ed = UnsafeIndexable(__get_ed(vc))
-        pts = UnsafeIndexable(__get_pts(vc))
+        p = __get_p(cell)
+        nu = UnsafeIndexable(__get_nu(cell))
+        ed = UnsafeIndexable(__get_ed(cell))
+        pts = UnsafeIndexable(__get_pts(cell))
         for i in one(p)+true:p, j in OneTo(nu[i])
             k = ed[i, j] + true
             if k > zero(k)
@@ -1175,7 +1228,7 @@ function draw_pov_mesh(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
     format(io, Format("}\nface_indices {\n%d\n"),(p-2)<<1)
     for i in one(p) + true:p
         for j in one(nu[i]):nu[i]
-		    k = ed[i, j] + true
+            k = ed[i, j] + true
             if k > zero(k)
                 ed[i, j] = -k
                 l = __cycle_up(nu, ed[i, nu[i]+j]+true, k)
@@ -1192,7 +1245,7 @@ function draw_pov_mesh(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
         end
     end
     print(io, "}\ninside_vector <0,0,1>\n}\n")
-	__reset_edges!(vc, p, nu, ed)
+    __reset_edges!(vc, p, nu, ed)
     return nothing
 end
 

@@ -413,20 +413,11 @@ function nearest_particle(con::AbstractContainer, pos)
 end
 
 """
-    draw_domain_pov(path::AbstractString, con::AbstractContainer)
-
-Export the bounding box of the container in POV-Ray format.
-"""
-draw_domain_pov
-
-"""
     draw_domain_gnuplot(file, con::AbstractContainer)
 
 Export the bounding box of the container in Gnuplot format. `file` can be a path or an `IO`
     object.
 """
-draw_domain_gnuplot
-
 function draw_domain_gnuplot(f, con::AbstractContainer)
     __draw_domain_gnuplot(f, __raw(con))
 end
@@ -482,7 +473,6 @@ function draw_gnuplot(
     if cells && particles
         cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
         open(cells_path, "w") do cells_io
-            #cells_file = Libc.FILE(cells_io)
             pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
             open(pts_path, "w") do pts_io
                 for (pt, cell) in con
@@ -490,12 +480,10 @@ function draw_gnuplot(
                         (; id, pos) = pt
                         dx, dy, dz = pos
                         draw_gnuplot(cells_io, vc, pos)
-                        #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
                         format(pts_io, pt_fmt, id, dx, dy, dz)
                     end
                 end
             end
-            #close(cells_file)
         end
     elseif cells
         cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
@@ -506,10 +494,8 @@ function draw_gnuplot(
                     (; id, pos) = pt
                     dx, dy, dz = pos
                     draw_gnuplot(cells_io, vc, pos)
-                    #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
                 end
             end
-            #close(cells_file)
         end
     elseif particles
         pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
@@ -559,7 +545,7 @@ end
 Export the particles information in text format.
 """
 function draw_particles(path::AbstractString, con::AbstractContainer)
-    draw_paticles(__raw(con), path)
+    draw_particles(__raw(con), path)
     return nothing
 end
 
@@ -581,7 +567,7 @@ function draw_pov(
     if astcnt > 1
         throw(
             ArgumentError(
-                "Maximum one asterisk is allowed in output name template , got \"" * fmask * "\""
+                "Maximum one asterisk is allowed in output name template, got \"" * fmask * "\""
             )
         )
     end
@@ -593,11 +579,11 @@ function draw_pov(
     end
 
     if cells
-        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
+        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.pov"
         draw_cells_pov(raw_con, cells_path)
     end
     if particles
-        pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
+        pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.pov"
         draw_particles_pov(raw_con, pts_path)
     end
 end
