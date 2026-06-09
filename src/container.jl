@@ -6,7 +6,7 @@ A singleton type to denote the lack of a specific order of iteration over a Voro
 """
 struct UnspecifiedOrder<:ContainerIterationOrder end
 
-mutable struct Container{C<:AbstractRawContainer, O<:ContainerIterationOrder}<:AbstractContainer
+mutable struct Tessellation{C<:AbstractContainer, O<:ContainerIterationOrder}
     const con::C
     ord::O
 end
@@ -37,10 +37,10 @@ function container(
     px, py, pz = periodic
     ppb = Int32(particles_per_block)
 
-    con = RawContainer(
+    con = Container(
         x_min, x_max, y_min, y_max, z_min, z_max, n_x, n_y, n_z, px, py, pz, ppb,
     )
-    return Container(con, ordering)
+    return Tessellation(con, ordering)
 end
 
 """
@@ -82,10 +82,10 @@ function voronoi_tessellation(
     ilscale = cbrt(length(pos) / (OPT_PART_PER_BLOCK * dx * dy * dz))
     nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
 
-    rcon = RawContainer(
+    rcon = Container(
         x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz, px, py, pz, ppb,
     )
-    con = Container(rcon, ordering)
+    con = Tessellation(rcon, ordering)
 
     for (pid, p) in zip(id, pos)
         add_point!(con, pid, p)
@@ -120,10 +120,10 @@ function voronoi_tessellation(
     ilscale = cbrt(length(pos) / (OPT_PART_PER_BLOCK * dx * dy * dz))
     nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
 
-    rcon = RawContainer(
+    rcon = Container(
         x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz, px, py, pz, ppb,
     )
-    con = Container(rcon, ordering)
+    con = Tessellation(rcon, ordering)
 
     @inbounds for (pid, p) in zip(id, pos)
         add_point!(con, pid, p)
@@ -158,10 +158,10 @@ function voronoi_tessellation(
     ilscale = cbrt(length(id) / (OPT_PART_PER_BLOCK * dx * dy * dz))
     nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
 
-    rcon = RawContainer(
+    rcon = Container(
         x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz, px, py, pz, ppb,
     )
-    con = Container(rcon, ordering)
+    con = Tessellation(rcon, ordering)
 
     @inbounds for (k, pid) in enumerate(id)
         x, y, z = @views pos[begin+k-1:begin+k+2]
@@ -196,10 +196,10 @@ function polydisperse_container(
     px, py, pz = periodic
     ppb = Int32(particles_per_block)
 
-    con = RawContainerPoly(
+    con = ContainerPoly(
         x_min, x_max, y_min, y_max, z_min, z_max, n_x, n_y, n_z, px, py, pz, ppb,
     )
-    return Container(con, ordering)
+    return Tessellation(con, ordering)
 end
 
 """
@@ -207,23 +207,23 @@ end
 
 Return the underlying raw container. For raw containers, return the container itself.
 """
-__raw(con::AbstractRawContainer) = con
-__raw(con::Container) = con.con
+__raw(con::AbstractContainer) = con
+__raw(con::Tessellation) = con.con
 
-__raw_type(::Type{Container{C,O}}) where {C,O} = C
-__raw_type(::Type{C}) where {C<:AbstractRawContainer} = C
+__raw_type(::Type{Tessellation{C,O}}) where {C,O} = C
+__raw_type(::Type{C}) where {C<:AbstractContainer} = C
 
 @doc """
     __cxxwrap_put!(con::RawContainer[, ord::InsertionOrder], id::Int32, x::Float64, y::Float64, z::Float64)
 
 Wrapper for `con.put([ord,] id, x, y, z)`.
-""" __cxxwrap_put!(::RawContainer)
+""" __cxxwrap_put!(::Container)
 
 @doc """
     __cxxwrap_put!(con::RawContainerPoly[, ord::InsertionOrder], id::Int32, x::Float64, y::Float64, z::Float64, r::Float64)
 
 Wrapper for `con.put([ord,] id, x, y, z, r)`.
-""" __cxxwrap_put!(::RawContainerPoly)
+""" __cxxwrap_put!(::ContainerPoly)
 
 """
     __add_point!(con::AbstractRawContainer, ord::ContainerIterationOrder, id, x, y, z[, r])
@@ -231,7 +231,7 @@ Wrapper for `con.put([ord,] id, x, y, z, r)`.
 Add point respecting `ord` and return the container.
 """
 function __add_point!(
-    con::RawContainer,
+    con::Container,
     ::UnspecifiedOrder,
     id::Int32,
     x::Float64,
@@ -243,7 +243,7 @@ function __add_point!(
 end
 
 function __add_point!(
-    con::RawContainer,
+    con::Container,
     ord::InsertionOrder,
     id::Int32,
     x::Float64,
@@ -255,7 +255,7 @@ function __add_point!(
 end
 
 function __add_point!(
-    con::RawContainerPoly,
+    con::ContainerPoly,
     ::UnspecifiedOrder,
     id::Int32,
     x::Float64,
@@ -268,7 +268,7 @@ function __add_point!(
 end
 
 function __add_point!(
-    con::RawContainerPoly,
+    con::ContainerPoly,
     ord::InsertionOrder,
     id::Int32,
     x::Float64,
@@ -290,7 +290,7 @@ Add a point to a container `con`.
 * `(x, y, z)::Real`: coordinates of the particle to insert
 * `r::Real`: radius (only for polydisperse containers)
 """
-@propagate_inbounds function add_point!(con::Container{<:RawContainer}, id::Integer, pos)
+@propagate_inbounds function add_point!(con::Tessellation{<:Container}, id::Integer, pos)
     @boundscheck if length(pos) != 3
         throw(ArgumentError("Can only add 3-dimensional points to a VoroPlusPlus Container"))
     end
@@ -299,7 +299,7 @@ Add a point to a container `con`.
     return con
 end
 
-@propagate_inbounds function add_point!(con::Container{<:RawContainerPoly}, id::Integer, posr)
+@propagate_inbounds function add_point!(con::Tessellation{<:ContainerPoly}, id::Integer, posr)
     @boundscheck if length(posr) != 4
         throw(ArgumentError("Can only add 3-dimensional points and radius to a polydisperse VoroPlusPlus Container"))
     end
@@ -309,7 +309,7 @@ end
 end
 
 @propagate_inbounds function add_point!(
-    con::Container{<:RawContainerPoly}, id::Integer, pos, r::Real
+    con::Tessellation{<:ContainerPoly}, id::Integer, pos, r::Real
 )
     @boundscheck if length(pos) != 3
         throw(ArgumentError("Can only add 3-dimensional points and radius to a polydisperse VoroPlusPlus Container"))
@@ -324,7 +324,7 @@ end
 
 Return tuple `((xmin, ymin, zmin), (xmax, ymax, zmax))`.
 """
-function bounding_box(con::AbstractContainer)
+function bounding_box(con::Tessellation)
     xlo, ylo, zlo, xhi, yhi, zhi = __cxxwrap_bounds(__raw(con))
     return (xlo, ylo, zlo), (xhi, yhi, zhi)
 end
@@ -334,12 +334,12 @@ end
 
 Delete all data in container and return the container.
 """
-function Base.empty!(con::AbstractRawContainer)
+function Base.empty!(con::AbstractContainer)
     __cxxwrap_clear!(con)
     return con
 end
 
-function Base.empty!(con::Container{C,O}) where {C,O}
+function Base.empty!(con::Tessellation{C,O}) where {C,O}
     __cxxwrap_clear!(__raw(con))
     con.ord = O()
     return con
@@ -350,7 +350,7 @@ end
 
 Return periodicity flags in X, Y, Z directions.
 """
-function periodicity(con::AbstractContainer)
+function periodicity(con::Tessellation)
     return Bool.(__cxxwrap_periodic(__raw(con)))
 end
 
@@ -359,16 +359,16 @@ end
 
 Return the object representing ordering of the container.
 """
-ordering(con::Container) = con.ord
+ordering(con::Tessellation) = con.ord
 
-ordering(::AbstractRawContainer) = UnspecifiedOrder()
+ordering(::AbstractContainer) = UnspecifiedOrder()
 
 """
     isinside(pos, con::AbstractContainer)
 
 Test if a given vector lies within the container bounds and any walls.
 """
-function isinside(pos, con::AbstractContainer)
+function isinside(pos, con::Tessellation)
     if eachindex(pos) != OneTo(3)
         throw(ArgumentError("Can only test 3D vectors in container"))
     end
@@ -382,7 +382,7 @@ end
 
 Return the total number of points in the container.
 """
-function total_particles(con::AbstractContainer)
+function total_particles(con::Tessellation)
     return total_particles(__raw(con))
 end
 
@@ -393,7 +393,7 @@ Computes all of the Voronoi cells in the container, but does nothing with the ou
     useful for measuring the pure computation time of the Voronoi algorithm, without any
     additional calculations such as volume evaluation or cell output.
 """
-function compute_all_cells(con::AbstractContainer)
+function compute_all_cells(con::Tessellation)
     return compute_all_cells(__raw(con))
 end
 
@@ -402,7 +402,7 @@ end
 
 Return the parameter of the particle nearest to the position `pos`.
 """
-function nearest_particle(con::AbstractContainer, pos)
+function nearest_particle(con::Tessellation, pos)
     if eachindex(pos) != OneTo(3)
         throw(ArgumentError("Can only test 3D vectors in container"))
     end
@@ -427,17 +427,17 @@ Export the bounding box of the container in Gnuplot format. `file` can be a path
 """
 draw_domain_gnuplot
 
-function draw_domain_gnuplot(f, con::AbstractContainer)
+function draw_domain_gnuplot(f, con::Tessellation)
     __draw_domain_gnuplot(f, __raw(con))
 end
 
-function __draw_domain_gnuplot(path::AbstractString, con::AbstractRawContainer)
+function __draw_domain_gnuplot(path::AbstractString, con::AbstractContainer)
     open(path, "w") do io
         __draw_domain_gnuplot(io, con)
     end
 end
 
-function __draw_domain_gnuplot(io::IO, con::AbstractRawContainer)
+function __draw_domain_gnuplot(io::IO, con::AbstractContainer)
     fmt1 = Format("%g %g %g\n%g %g %g\n%g %g %g\n%g %g %g\n")
     fmt2 = Format("%g %g %g\n%g %g %g\n\n%g %g %g\n%g %g %g\n\n")
     ax, ay, az, bx, by, bz = __cxxwrap_bounds(con)
@@ -457,7 +457,7 @@ Export container data to text files in gnuplot format. If `prefix` does not have
     then domain would be written to `/home/user/voronoi.domain.dat` etc.
 """
 function draw_gnuplot(
-    fmask::AbstractString, con::AbstractContainer,
+    fmask::AbstractString, con::Tessellation,
     ;
     domain::Bool=false, cells::Bool=true, particles::Bool=true,
 )
@@ -528,7 +528,7 @@ end
 
 Export the cells geometry in POV-Ray format.
 """
-function draw_cells_pov(path::AbstractString, con::AbstractContainer)
+function draw_cells_pov(path::AbstractString, con::Tessellation)
     draw_cells_pov(__raw(con), path)
     return nothing
 end
@@ -538,8 +538,8 @@ end
 
 Export the cells geometry in Gnuplot format.
 """
-function draw_cells_gnuplot(path::AbstractString, con::AbstractContainer)
-    draw_cells_gnuplot(__raw(con), path)
+function draw_cells_gnuplot(path::AbstractString, con::Tessellation)
+    __cxxwrap_draw_cells_gnuplot(__raw(con), path)
     return nothing
 end
 
@@ -548,8 +548,8 @@ end
 
 Export the particles in POV-Ray format.
 """
-function draw_particles_pov(path::AbstractString, con::AbstractContainer)
-    draw_particles_pov(__raw(con), path)
+function draw_particles_pov(path::AbstractString, con::Tessellation)
+    __cxxwrap_draw_particles_pov_filename(__raw(con), path)
     return nothing
 end
 
@@ -558,8 +558,8 @@ end
 
 Export the particles information in text format.
 """
-function draw_particles(path::AbstractString, con::AbstractContainer)
-    draw_paticles(__raw(con), path)
+function draw_particles(path::AbstractString, con::Tessellation)
+    __cxxwrap_draw_particles(con.con, path)
     return nothing
 end
 
@@ -573,7 +573,7 @@ Export container data to text files in POV-Ray format. If `prefix` does not have
     then domain would be written to `/home/user/voronoi.domain.pov` etc.
 """
 function draw_pov(
-    fmask::AbstractString, con::AbstractContainer,
+    fmask::AbstractString, con::Tessellation,
     ;
     domain::Bool=false, cells::Bool=true, particles::Bool=true,
 )
@@ -589,15 +589,15 @@ function draw_pov(
 
     if domain
         dom_path = astcnt > 0 ? replace(fmask, '*' => "domain") : fmask * "_domain.pov"
-        draw_domain_pov(raw_con, dom_path)
+        __cxxwrap_draw_domain_pov(raw_con, dom_path)
     end
 
     if cells
         cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
-        draw_cells_pov(raw_con, cells_path)
+        __cxxwrap_draw_cells_pov(raw_con, cells_path)
     end
     if particles
         pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
-        draw_particles_pov(raw_con, pts_path)
+        __cxxwrap_draw_particles_pov(raw_con, pts_path)
     end
 end

@@ -42,10 +42,10 @@ function read_particles(
 
     ilscale = cbrt(length(particles) / (OPT_PART_PER_BLOCK * dx * dy * dz))
     nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
-    raw_con = RawContainer(
+    raw_con = Container(
         x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz, px, py, pz, ppb,
     )
-    con = Container(raw_con, ordering)
+    con = Tessellation(raw_con, ordering)
 
     @inbounds for p in particles
         add_point!(con, p)
@@ -97,10 +97,10 @@ function read_polydisperse_particles(
 
     ilscale = cbrt(length(particles) / (OPT_PART_PER_BLOCK * dx * dy * dz))
     nx, ny, nz = floor.(Int32, (dx, dy, dz) .* ilscale .+ 1)
-    raw_con = RawContainerPoly(
+    raw_con = ContainerPoly(
         x_min, x_max, y_min, y_max, z_min, z_max, nx, ny, nz, px, py, pz, ppb,
     )
-    con = Container(raw_con, ordering)
+    con = Tessellation(raw_con, ordering)
 
     @inbounds for p in particles
         add_point!(con, p)
@@ -115,7 +115,7 @@ Read particle data from `input` into an existing container. `input` may be a pat
     object.
 """
 function read_particles!(
-    con::Container{<:RawContainer},
+    con::Tessellation{<:Container},
     input::Union{IO,AbstractString},
 )
     ((ax, ay, az), (bx, by, bz)) = bounding_box(con)
@@ -139,7 +139,7 @@ function read_particles!(
 end
 
 function read_particles!(
-    con::Container{<:RawContainerPoly},
+    con::Tessellation{<:ContainerPoly},
     input::Union{IO,AbstractString},
 )
     ((ax, ay, az), (bx, by, bz)) = bounding_box(con)

@@ -16,30 +16,30 @@ function particle(id::Integer, pos, radius::Real)
     return Particle{Float64}(id, pos, radius)
 end
 
-function Particle(::RawContainer, (id, x, y, z))
+function Particle(::Container, (id, x, y, z))
     return Particle{Nothing}(id, (x, y, z), nothing)
 end
 
-function Particle(::RawContainerPoly, (id, x, y, z, r))
+function Particle(::ContainerPoly, (id, x, y, z, r))
     return Particle{Float64}(id, (x, y, z), r)
 end
 
-Particle(con::Container, itr...) = Particle(__raw(con), itr...)
+Particle(con::Tessellation, itr...) = Particle(__raw(con), itr...)
 
-@propagate_inbounds function add_point!(con::Container{<:RawContainer}, p::Particle)
+@propagate_inbounds function add_point!(con::Tessellation{<:Container}, p::Particle)
     add_point!(con, p.id, p.pos)
 end
 
 @propagate_inbounds function add_point!(
-    con::Container{<:RawContainerPoly}, p::Particle{Float64},
+    con::Tessellation{<:ContainerPoly}, p::Particle{Float64},
 )
     add_point!(con, p.id, p.pos, p.radius)
 end
 
-particle_type(::Type{C}) where {C<:AbstractContainer} = particle_type(__raw_type(C))
+particle_type(::Type{C}) where {C<:Tessellation} = particle_type(__raw_type(C))
 
-particle_type(::Type{<:RawContainer}) = Particle{Nothing}
+particle_type(::Type{<:Container}) = Particle{Nothing}
 
-particle_type(::Type{<:RawContainerPoly}) = Particle{Float64}
+particle_type(::Type{<:ContainerPoly}) = Particle{Float64}
 
-particle_type(::C) where {C<:AbstractContainer} = particle_type(C)
+particle_type(::C) where {C<:Tessellation} = particle_type(C)

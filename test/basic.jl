@@ -18,7 +18,9 @@
         end
     end
 
-    @test 0 < volume(vc) - 4/3 * pi / 8 < 0.05
+    #@test 0 < volume(vc) - 4/3 * pi / 8 < 0.05
+    @test 0 < volume(VoroPlusPlus.CheckedVoronoiCell(vc, VoroPlusPlus.isvalid(vc))) - 4/3 * pi / 8 < 0.05
+    
 end
 
 @testset "Platonic Solids" begin
@@ -34,13 +36,13 @@ end
     cut_by_particle_position!(vc, (-1, 1, -1))
     cut_by_particle_position!(vc, (-1, -1, 1))
 
-    @test isapprox(volume(vc), 9.0; atol=1e-8)
+    @test isapprox(volume(VoroPlusPlus.CheckedVoronoiCell(vc, VoroPlusPlus.isvalid(vc))), 9.0; atol=1e-8)
 
     # Create a cube. Since this is the default shape
     # we don't need to do any plane cutting.
     reset_to_box!(vc, (-1, -1, -1), (1, 1, 1))
 
-    @test isapprox(volume(vc), 8.0; atol=1e-8)
+    @test isapprox(volume(VoroPlusPlus.CheckedVoronoiCell(vc, VoroPlusPlus.isvalid(vc))), 8.0; atol=1e-8)
 
     # Create an octahedron
     reset_to_box!(vc, (-2, -2, -2), (2, 2, 2))
@@ -53,7 +55,7 @@ end
     cut_by_particle_position!(vc, (1, -1, -1))
     cut_by_particle_position!(vc, (-1, -1, -1))
 
-    @test isapprox(volume(vc), 4.5; atol=1e-8)
+    @test isapprox(volume(VoroPlusPlus.CheckedVoronoiCell(vc, VoroPlusPlus.isvalid(vc))), 4.5; atol=1e-8)
 
     # Create a dodecahedron
     reset_to_box!(vc, (-2, -2, -2), (2, 2, 2))
@@ -74,7 +76,7 @@ end
     a = 2 * sqrt(3 - Phi) / Phi^2 * r_in
     vol_ref = 5 * Phi^3 / (6 - 2 * Phi) * a^3
 
-    @test isapprox(volume(vc), vol_ref; atol=1e-8)
+    @test isapprox(volume(VoroPlusPlus.CheckedVoronoiCell(vc, VoroPlusPlus.isvalid(vc))), vol_ref; atol=1e-8)
 
     # Create an icosahedron
     reset_to_box!(vc, (-2, -2, -2), (2, 2, 2))
@@ -103,7 +105,7 @@ end
     a = 2 * sqrt(3) / Phi^2 * r_in
     vol_ref = 5 * Phi^2 / 6 * a^3
 
-    @test isapprox(volume(vc), vol_ref; atol=1e-8)
+    @test isapprox(volume(VoroPlusPlus.CheckedVoronoiCell(vc, VoroPlusPlus.isvalid(vc))), vol_ref; atol=1e-8)
 end
 
 @testset "Random points" begin
