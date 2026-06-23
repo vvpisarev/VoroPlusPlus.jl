@@ -1,5 +1,5 @@
 """
-    __container_iterator(con::AbstractRawContainer, ord::ContainerIterationOrder)
+    __container_iterator(con::AbstractContainer, ord::ContainerIterationOrder)
 
 Return an iterator over the container according to the ordering represented by `ord`.
 """
@@ -57,21 +57,21 @@ struct EachParticle{C<:Tessellation}
 end
 
 """
-    eachcell(con::AbstractContainer)
+    eachcell(tessel::Tessellation)
 
 Return an iterable which produces only the Voronoi cells upon iteration.
 """
-function eachcell(con::Tessellation)
-    return EachCell(con)
+function eachcell(tessel::Tessellation)
+    return EachCell(tessel)
 end
 
 """
-    eachcell(con::AbstractContainer)
+    eachparticle(tessel::Tessellation)
 
 Return an iterable which produces only the particles data upon iteration.
 """
-function eachparticle(con::Tessellation)
-    return EachParticle(con)
+function eachparticle(tessel::Tessellation)
+    return EachParticle(tessel)
 end
 
 function Base.iterate(con::EachCell)
