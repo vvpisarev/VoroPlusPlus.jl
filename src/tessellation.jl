@@ -6,13 +6,13 @@ A singleton type to denote the lack of a specific order of iteration over a Voro
 """
 struct UnspecifiedOrder<:ContainerIterationOrder end
 
-mutable struct Tessellation{C<:AbstractContainer, O<:ContainerIterationOrder}
+mutable struct Tessellation{C<:AbstractContainer, O<:ContainerIterationOrder}<:AbstractTessellation{C}
     const con::C
     ord::O
 end
 
 """
-    container(; bounds, nblocks, periodic=(false, false, false), particles_per_block=8, ordering)
+    container(; bounds, nblocks, periodic=(false, false, false), particles_per_block=8)
 
 Allocate space for a container of Voronoi cells.
 # Keywords
@@ -21,7 +21,6 @@ Allocate space for a container of Voronoi cells.
 * `periodic`: periodicity in each axis. Default: `(false, false, false)`
 * `particles_per_block::Integer`: initially allocate memory for this many particles
     per block. Default: 8
-* `ordering`: `UnspecifiedOrder()` or `InsertionOrder()`. Default: `UnspecifiedOrder()`.
 """
 function container(
     ;
@@ -29,7 +28,6 @@ function container(
     nblocks,
     periodic=(false, false, false),
     particles_per_block::Integer=8,
-    ordering::ContainerIterationOrder=UnspecifiedOrder(),
 )
     ((ax, ay, az), (bx, by, bz)) = bounds
     x_min, x_max, y_min, y_max, z_min, z_max = Float64.((ax, bx, ay, by, az, bz))
@@ -40,7 +38,7 @@ function container(
     con = Container(
         x_min, x_max, y_min, y_max, z_min, z_max, n_x, n_y, n_z, px, py, pz, ppb,
     )
-    return Tessellation(con, ordering)
+    return con
 end
 
 """

@@ -1,16 +1,16 @@
 """
     AbstractContainer
 
-Abstract type for Voronoi tessellation containers.
+Supertype for wrappers of C++ container types.
 """
 abstract type AbstractContainer end
 
 """
-    AbstractRawContainer
+    AbstractTessellation
 
-Supertype for direct wrappers of C++ types.
+Abstract type for Voronoi tessellations
 """
-abstract type AbstractRawContainer end
+abstract type AbstractTessellation{T} end
 
 """
     ContainerIterationOrder

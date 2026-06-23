@@ -180,8 +180,12 @@ end
 
 Return the volume of the Voronoi cell. For invalid cells, return 0.0.
 """
-function volume(vc::CheckedVoronoiCell) #CheckedVoronoiCell
+function volume(vc::CheckedVoronoiCell)
     isvalid(vc) ? __cxxwrap_volume(vc._cell) : 0.0
+end
+
+function volume(vc::VoronoiCell)
+    return __cxxwrap_volume(vc)
 end
 
 """

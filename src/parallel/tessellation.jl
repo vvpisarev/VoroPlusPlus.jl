@@ -24,7 +24,7 @@ struct ExtendedContainer{T<:Union{Container,ContainerPoly}}
 end
 
 # Voronoi Tesselation
-struct ParallelTessellation{T<:ExtendedContainer}
+struct ParallelTessellation{T<:ExtendedContainer} <: AbstractTessellation{T}
     # minimum and maximum dimensions for each coordinate
     x_min::Float64
     x_max::Float64
@@ -34,7 +34,6 @@ struct ParallelTessellation{T<:ExtendedContainer}
     z_max::Float64
     domain::Array{T, 3} #grid of subcontainers
     skin_distance::Float64
-    owner::Vector{Int32} # vector owner of each particle ID
     periodic::NTuple{3,Bool}
 end
 
@@ -71,14 +70,14 @@ function generate_containers(
     y_max::Float64,
     z_min::Float64,
     z_max::Float64,
-    periodic::Ntuple{3,Bool},
+    periodic::NTuple{3,Bool},
     d_skin::Float64, # d_skin size
     nparticles::Integer, # total no. of particles
     ntasks::Int32 = Int32(1), # default number of tasks
 )
     lx, ly, lz = (x_max, y_max, z_max) .- (x_min, y_min, z_min)
-    subdomain_size = [lx, ly, lz]
-    splits = Int32[1, 1, 1]
+    subdomain_size = @MVector [lx, ly, lz]
+    splits = @MVector Int32[1, 1, 1]
     factors = factorize(ntasks)
     while !isempty(factors)
         p = pop!(factors)
@@ -131,23 +130,67 @@ function generate_containers(
     return containers
 end
 
+function __prepare_coords(pos, ((xmin, ymin, zmin), (xmax, ymax, zmax)), periodic, rneigh)
+    function __wrap(x, xmin, xmax, lx)
+        xmin < x <= xmax ? x : xmin + mod(x - xmin, lx)
+    end
+
+    trunc_pos = SVector{3,Float64}[]
+    id = Int32[]
+    px, py, pz = periodic
+    lx, ly, lz = (xmax, ymax, zmax) .- (xmin, ymin, zmin)
+
+    for (ind, (x, y, z)) in pairs(pos)
+        xx = px ? __wrap(x, xmin, xmax, lx) : x
+        yy = py ? __wrap(y, ymin, ymax, ly) : y
+        zz = pz ? __wrap(z, zmin, zmax, lz) : z
+
+        if (xmin < xx <= xmax) & (ymin < yy <= ymax) & (zmin < zz <= zmax)
+            push!(trunc_pos, (xx, yy, zz))
+            push!(id, ind)
+        end
+    end
+
+    for dim in 1:3
+        __extend_ghosts!(trunc_pos, id, dim, periodic, (xmin, ymin, zmin), rneigh, (lx, ly, lz))
+    end
+    return trunc_pos, id
+end
+
+function __extend_ghosts!(coord, id, dim, pbc, origin, rneigh, boxdim)
+    !pbc[dim] && return coord, id
+    ncoord = length(coord)
+    dr = boxdim .* ((1, 2, 3) .== dim)
+    @inbounds for k in 1:ncoord
+        r = coord[k]
+        xoff = r[dim] - origin[dim]
+        if xoff < rneigh
+            push!(coord, r .+ dr)
+            push!(id, id[k])
+        end
+        if boxdim[dim] - xoff < rneigh
+            push!(coord, r .- dr)
+            push!(id, id[k])
+        end
+    end
+    return coord, id
+end
+
 """
-    parallel_voronoi_tessellation(pos; [id,] bounds, periodic=(false, false, false), ntasks)
+    parallel_voronoi_tessellation(pos; bounds, periodic=(false, false, false), ntasks)
 
 Allocate space for a container of Voronoi cells and add coordinates stored in `pos`.
 # Arguments
 * `pos`: vector of positions
 # Keywords
-* `id`: use those IDs instead of indices of `pos`
 * `bounds`: limits of the bounding box `((xmin, ymin, zmin), (xmax, ymax, zmax))`
 * `periodic::NTuple{3,Bool}`: periodicity in each axis. Default: `(false, false, false)`
-* `ordering`: `UnspecifiedOrder()` or `InsertionOrder()`. Default: `UnspecifiedOrder()`.
+* `ntasks`: number of tasks for parallel computation.
 """
 function parallel_voronoi_tessellation(
     pos::AbstractVector
     ;
     bounds,
-    id::AbstractVector{<:Integer}=OneTo(length(pos)),
     periodic=(false, false, false),
     ntasks::Integer=2,
 )
@@ -159,13 +202,9 @@ function parallel_voronoi_tessellation(
     eachindex(periodic) == OneTo(3) ||
     throw(DimensionMismatch("Periodic flags must be a length-3 boolean array or tuple"))
 
-    eachindex(pos) == eachindex(id) ||
-    throw(DimensionMismatch("Position and ID vectors must have the same dimensions"))
-
     ((ax, ay, az), (bx, by, bz)) = bounds
     x_min, x_max, y_min, y_max, z_min, z_max = Float64.((ax, bx, ay, by, az, bz))
-    px, py, pz = (Bool(p) for p in periodic)
-    ppb = Int32(8)
+    px, py, pz = periodic
 
     # container length in earch coordinate
     lx, ly, lz = Float64.((x_max - x_min, y_max - y_min, z_max - z_min))
@@ -174,47 +213,38 @@ function parallel_voronoi_tessellation(
     vol = lx * ly * lz
 
     # number of paticles
-    npts = length(coords)
+    npts = length(pos)
 
     # mean interparticle distance
     r_ave = cbrt(vol / npts)
     d_skin = 3 * r_ave
 
     containers = generate_containers(
-        x_min, x_max, y_min, y_max, z_min, z_max, d_skin, npts, Int32(ntasks)
+        x_min, x_max, y_min, y_max, z_min, z_max, periodic, d_skin, npts, Int32(ntasks)
     )
-    owner = zeros(Int32, npts) # task that owns each particle
 
     tessellation = ParallelTessellation(
         x_min, x_max, y_min, y_max, z_min, z_max,
         containers,
         d_skin,
-        owner,
-        periodic
+        (px, py, pz)
     )
 
     nx, ny, nz = size(containers)
     dx, dy, dz = (lx, ly, lz) ./ (nx, ny, nz)
 
-    # particle
-    p = 0
-
     # sort particles into bins
 
     #vector of vectors(number of task)
     workload = [Int32[] for _ in CartesianIndices(containers)]
-    ghosts = SVector{3,Float64}[]
-    for ind in eachindex(coords)
-        p += 1
-        x, y, z = coords[ind]
+    trunc_pos, id = __prepare_coords(pos, bounds, periodic, d_skin)
+    for ind in eachindex(trunc_pos)
+        x, y, z = trunc_pos[ind]
         (ix::Int, xoff), (iy::Int, yoff), (iz::Int, zoff) =
             fldmod.((x, y, z) .- (x_min, y_min, z_min), (dx, dy, dz))
         ix += one(ix)
         iy += one(iy)
         iz += one(iz)
-        i_con = LinearIndices(workload)[ix, iy, iz]
-        push!(workload[i_con], p)
-        owner[p] = i_con
         for dix in -1:1
             jx = ix + dix
             jx in axes(containers, 1) || continue
@@ -226,12 +256,11 @@ function parallel_voronoi_tessellation(
                 yoffj = yoff - diy * dy
                 -d_skin < yoffj <= dy + d_skin || continue
                 for diz in -1:1
-                    (dix, diy, diz) == (0, 0, 0) && continue
                     jz = iz + diz
                     jz in axes(containers, 3) || continue
                     zoffj = zoff - diz * dz
                     -d_skin < zoffj <= dz + d_skin || continue
-                    push!(workload[jx, jy, jz], p)
+                    push!(workload[jx, jy, jz], ind)
                 end
             end
         end
@@ -243,9 +272,7 @@ function parallel_voronoi_tessellation(
             work = workload[i_con]
             con = tessellation.domain[i_con].con
             for i_part in work
-                ind = (i_part - 1) * 3
-                x, y, z = coords[ind+1], coords[ind+2], coords[ind+3]
-                add_point!(con, i_part, x, y, z)
+                __cxxwrap_put!(con, id[i_part], trunc_pos[i_part]...)
             end
         end
 
@@ -269,19 +296,16 @@ end
 function Base.foreach(fn, vt::ParallelTessellation)
     @sync for con_id in eachindex(vt.domain)
         @spawn let
-            pid = Ref(Int32(0))
-            x = Ref(0.0)
-            y = Ref(0.0)
-            z = Ref(0.0)
-            r = Ref(0.0)
-            c = VoronoiCell()
-            con = vt.domain[con_id].con
-            cla = ContainerIterator(con)
-            if ( start!(cla) )
+            cell = VoronoiCell()
+            (; con, x_min, x_max, y_min, y_max, z_min, z_max) = vt.domain[con_id]
+            itor = ContainerSubsetIterator(con)
+            __cxxwrap_setup_box!(itor, nextfloat(x_min), x_max, nextfloat(y_min), y_max, nextfloat(z_min), z_max, true)
+            if ( __cxxwrap_start!(itor) )
                 while true
-                    pos(cla, pid, x, y, z, r)
-                    vt.owner[pid[]] == con_id && compute_cell!(c, con, cla) && fn(c)
-                    next!(cla) || break
+                    pinfo = __cxxwrap_particle_info(itor)
+                    particle = Particle(con, pinfo)
+                    __cxxwrap_compute_cell!(cell, con, itor) && fn((particle, cell))
+                    __cxxwrap_inc!(itor) || break
                 end
             end
         end
@@ -302,21 +326,18 @@ function Base.mapreduce(fn, op, vt::ParallelTessellation; init)
     @sync for con_id in LinearIndices(vt.domain)
         @spawn let
             val_local = init
-            pid = Ref(Int32(0))
-            x = Ref(0.0)
-            y = Ref(0.0)
-            z = Ref(0.0)
-            r = Ref(0.0)
-            c = VoronoiCell()
-            con = vt.domain[con_id].con
-            cla = Container_Iterator(con)
-            if start!(cla)
+            cell = VoronoiCell()
+            (; con, x_min, x_max, y_min, y_max, z_min, z_max) = vt.domain[con_id]
+            itor = ContainerSubsetIterator(con)
+            __cxxwrap_setup_box!(itor, nextfloat(x_min), x_max, nextfloat(y_min), y_max, nextfloat(z_min), z_max, true)
+            if __cxxwrap_start!(itor)
                 while true
-                    pos(cla, pid, x, y, z, r)
-                    if vt.owner[pid[]] == con_id && compute_cell!(c, con, cla)
-                        val_local = op(val_local, fn(c))
+                    pinfo = __cxxwrap_particle_info(itor)
+                    particle = Particle(con, pinfo)
+                    if __cxxwrap_compute_cell!(cell, con, itor)
+                        val_local = op(val_local, fn((particle, cell)))
                     end
-                    next!(cla) || break
+                    __cxxwrap_inc!(itor) || break
                 end
                 put!(locals, val_local)
             end
@@ -327,6 +348,29 @@ function Base.mapreduce(fn, op, vt::ParallelTessellation; init)
         val = op(val, take!(locals))
     end
     return val
+end
+
+function Base.map!(fn, dest, vt::ParallelTessellation)
+    @sync for con_id in LinearIndices(vt.domain)
+        @spawn let
+            cell = VoronoiCell()
+            (; con, x_min, x_max, y_min, y_max, z_min, z_max) = vt.domain[con_id]
+            itor = ContainerSubsetIterator(con)
+            __cxxwrap_setup_box!(itor, nextfloat(x_min), x_max, nextfloat(y_min), y_max, nextfloat(z_min), z_max, true)
+            if __cxxwrap_start!(itor)
+                while true
+                    pinfo = __cxxwrap_particle_info(itor)
+                    particle = Particle(con, pinfo)
+                    id = particle.id
+                    if __cxxwrap_compute_cell!(cell, con, itor)
+                        dest[id] = fn((particle, cell))
+                    end
+                    __cxxwrap_inc!(itor) || break
+                end
+            end
+        end
+    end
+    return dest
 end
 
 """
@@ -341,21 +385,18 @@ function Base.sum(fn, vt::ParallelTessellation; init)
     @sync for con_id in LinearIndices(vt.domain)
         @spawn let
             val_local = init
-            pid = Ref(Int32(0))
-            x = Ref(0.0)
-            y = Ref(0.0)
-            z = Ref(0.0)
-            r = Ref(0.0)
-            c = VoronoiCell()
-            con = vt.domain[con_id].con
-            cla = Container_Iterator(con)
-            if start!(cla)
+            cell = VoronoiCell()
+            (; con, x_min, x_max, y_min, y_max, z_min, z_max) = vt.domain[con_id]
+            itor = ContainerSubsetIterator(con)
+            __cxxwrap_setup_box!(itor, nextfloat(x_min), x_max, nextfloat(y_min), y_max, nextfloat(z_min), z_max, true)
+            if __cxxwrap_start!(itor)
                 while true
-                    pos(cla, pid, x, y, z, r)
-                    if vt.owner[pid[]] == con_id && compute_cell!(c, con, cla)
-                        val_local += fn(c)
+                    pinfo = __cxxwrap_particle_info(itor)
+                    particle = Particle(con, pinfo)
+                    if __cxxwrap_compute_cell!(cell, con, itor)
+                        val_local += fn((particle, cell))
                     end
-                    next!(cla) || break
+                    __cxxwrap_inc!(itor) || break
                 end
                 put!(locals, val_local)
             end
@@ -368,40 +409,8 @@ function Base.sum(fn, vt::ParallelTessellation; init)
     return val
 end
 
-function GetVoroVolume(vt::VoronoiTessellation)
-    return sum(volume, vt; init=0.0)
-
-    # domain_vol = [0.0 for _ in vt.domain]
-
-    # Threads.@threads for con_id in eachindex(vt.domain)
-    #     pid = Ref(Int32(0))
-    #     x = Ref(0.0)
-    #     y = Ref(0.0)
-    #     z = Ref(0.0)
-    #     r = Ref(0.0)
-    #     c = VoronoiCell()
-    #     con = vt.domain[con_id].con
-    #     cla = Container_Iterator(con)
-    #     pvol = 0.0
-    #     if ( start!(cla) )
-    #         pos(cla, pid, x, y, z, r)
-    #         if vt.owner[pid[]] == con_id
-    #             if ( compute_cell!(c, con, cla) )
-    #                 pvol += volume(c)
-    #             end
-    #         end
-    #         while ( next!(cla) )
-    #             pos(cla, pid, x, y, z, r)
-    #             if vt.owner[pid[]] == con_id
-    #                 if ( compute_cell!(c, con, cla) )
-    #                     pvol += volume(c)
-    #                 end
-    #             end
-    #         end
-    #     end
-    #     domain_vol[con_id] = pvol
-    # end
-
-    # return sum(domain_vol)
-
+function voronoi_volume(vt::ParallelTessellation)
+    return sum(vt; init=0.0) do (part, cell)
+        volume(cell)
+    end
 end
