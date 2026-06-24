@@ -11,6 +11,10 @@ mutable struct Tessellation{C<:AbstractContainer, O<:ContainerIterationOrder}<:A
     ord::O
 end
 
+function Tessellation(con::AbstractContainer)
+    return Tessellation(con, UnspecifiedOrder())
+end
+
 """
     container(; bounds, nblocks, periodic=(false, false, false), particles_per_block=8)
 
@@ -411,13 +415,6 @@ function nearest_particle(con::Tessellation, pos)
 end
 
 """
-    draw_domain_pov(path::AbstractString, con::AbstractContainer)
-
-Export the bounding box of the container in POV-Ray format.
-"""
-draw_domain_pov
-
-"""
     draw_domain_gnuplot(file, con::AbstractContainer)
 
 Export the bounding box of the container in Gnuplot format. `file` can be a path or an `IO`
@@ -480,7 +477,6 @@ function draw_gnuplot(
     if cells && particles
         cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
         open(cells_path, "w") do cells_io
-            #cells_file = Libc.FILE(cells_io)
             pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
             open(pts_path, "w") do pts_io
                 for (pt, cell) in con
@@ -488,12 +484,10 @@ function draw_gnuplot(
                         (; id, pos) = pt
                         dx, dy, dz = pos
                         draw_gnuplot(cells_io, vc, pos)
-                        #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
                         format(pts_io, pt_fmt, id, dx, dy, dz)
                     end
                 end
             end
-            #close(cells_file)
         end
     elseif cells
         cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
@@ -504,10 +498,8 @@ function draw_gnuplot(
                     (; id, pos) = pt
                     dx, dy, dz = pos
                     draw_gnuplot(cells_io, vc, pos)
-                    #__cxxwrap_draw_gnuplot(cells_file, vc, dx, dy, dz)
                 end
             end
-            #close(cells_file)
         end
     elseif particles
         pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
@@ -579,7 +571,7 @@ function draw_pov(
     if astcnt > 1
         throw(
             ArgumentError(
-                "Maximum one asterisk is allowed in output name template , got \"" * fmask * "\""
+                "Maximum one asterisk is allowed in output name template, got \"" * fmask * "\""
             )
         )
     end

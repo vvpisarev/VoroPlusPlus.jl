@@ -20,7 +20,7 @@
 
     #@test 0 < volume(vc) - 4/3 * pi / 8 < 0.05
     @test 0 < volume(VoroPlusPlus.CheckedVoronoiCell(vc, VoroPlusPlus.isvalid(vc))) - 4/3 * pi / 8 < 0.05
-    
+
 end
 
 @testset "Platonic Solids" begin
@@ -131,14 +131,16 @@ end
         particles_per_block = 8,
     )
 
+    tessel = VoroPlusPlus.Tessellation(con)
+
     # Randomly add particles into the container
     for i in 1:nparticles
         x, y, z = (x_min, y_min, z_min) .+ (rand(rng), rand(rng), rand(rng)) .* (lx, ly, lz)
-        add_point!(con, i, (x, y, z))
+        add_point!(tessel, i, (x, y, z))
     end
 
     # Sum up the volumes, and check that this matches the container volume
-    vvol = sum(con) do (part, cell)
+    vvol = sum(tessel) do (part, cell)
         volume(cell)
     end
 
@@ -146,7 +148,7 @@ end
 
     neigh_vec = Int32[]
     neigh_std_vec = StdVector{Int32}()
-    for (part, cell) in con
+    for (part, cell) in tessel
         @test get_neighbors!(neigh_vec, cell) == get_neighbors!(neigh_std_vec, cell)
     end
 end
@@ -165,15 +167,16 @@ end
         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
         nblocks=(n_x, n_y, n_z),
         periodic=(false, false, false),
-        ordering=VoroPlusPlus.InsertionOrder()
     )
 
-    @test bounding_box(con) == ((x_min, y_min, z_min), (x_max, y_max, z_max))
-    @test periodicity(con) == (false, false, false)
+    tessel = VoroPlusPlus.Tessellation(con, VoroPlusPlus.InsertionOrder())
 
-    @test read_particles!(con, "./data/pack_ten_cube") === con
+    @test bounding_box(tessel) == ((x_min, y_min, z_min), (x_max, y_max, z_max))
+    @test periodicity(tessel) == (false, false, false)
 
-    con_ = read_particles(
+    @test read_particles!(tessel, "./data/pack_ten_cube") === tessel
+
+    tessel_ = read_particles(
         "./data/pack_ten_cube"
         ;
         bounds=((x_min, y_min, z_min), (x_max, y_max, z_max)),
@@ -181,7 +184,7 @@ end
         ordering=VoroPlusPlus.InsertionOrder()
     )
 
-    @test all(zip(con, con_)) do ((p1, cell1), (p2, cell2))
+    @test all(zip(tessel, tessel_)) do ((p1, cell1), (p2, cell2))
         p1 == p2 && volume(cell1) ≈ volume(cell2)
     end
 end
