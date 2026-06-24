@@ -18,10 +18,10 @@ VoronoiCell(::Float64)
 
 Create a new Voronoi cell based on the size of `con`.
 """
-VoronoiCell(con::Container) = VoronoiCell(__raw(con))
+VoronoiCell(con::Tessellation) = VoronoiCell(__raw(con))
 
 function Base.copyto!(dest::VoronoiCell, src::VoronoiCell)
-    __cxxwrap_copy!(dest, src)
+    __cxxwrap_copyto!(dest, src)
     return dest
 end
 
@@ -33,7 +33,7 @@ Return an independent copy of `vc`.
 Base.copy(::AbstractVoronoiCell)
 
 function Base.copy(vc::VoronoiCell)
-    tol = __get_tol(vc)
+    tol = __cxxwrap_tol(vc)
     max_len_sq = tol / (10.0 * eps(Float64))
     dest = VoronoiCell(max_len_sq)
     copyto!(dest, vc)
@@ -50,13 +50,13 @@ mutable struct CheckedVoronoiCell<:AbstractVoronoiCell
     _valid::Bool
 end
 
-function CheckedVoronoiCell(con::AbstractRawContainer, itor)
+function CheckedVoronoiCell(con::AbstractContainer, itor)
     vc = VoronoiCell(con)
     valid = __cxxwrap_compute_cell!(vc, con, itor)
     return CheckedVoronoiCell(vc, valid)
 end
 
-CheckedVoronoiCell(con::AbstractContainer, itor) = CheckedVoronoiCell(__raw(con), itor)
+CheckedVoronoiCell(con::Tessellation, itor) = CheckedVoronoiCell(__raw(con), itor)
 
 Base.copy(vc::CheckedVoronoiCell) = CheckedVoronoiCell(copy(vc._cell), vc._valid)
 
@@ -158,7 +158,7 @@ function Base.take!(vc::CheckedVoronoiCell)
     if vc._valid
         cell = vc._cell
         vc._valid = false
-        tol = __get_tol(cell)
+        tol = __cxxwrap_tol(cell)
         max_len_sq = tol / (10.0 * eps(Float64))
         vc._cell = VoronoiCell(max_len_sq)
         return cell
@@ -181,7 +181,11 @@ end
 Return the volume of the Voronoi cell. For invalid cells, return 0.0.
 """
 function volume(vc::CheckedVoronoiCell)
-    isvalid(vc) ? volume(vc._cell) : 0.0
+    isvalid(vc) ? __cxxwrap_volume(vc._cell) : 0.0
+end
+
+function volume(vc::VoronoiCell)
+    return __cxxwrap_volume(vc)
 end
 
 """
@@ -353,25 +357,25 @@ function cut_by_particle_position!(vc::CheckedVoronoiCell, pos)
 end
 
 function compute_cell!(
-    vc::VoronoiCell, con::AbstractRawContainer, itr
+    vc::VoronoiCell, con::AbstractContainer, itr
 )
     cell_is_valid = __cxxwrap_compute_cell!(vc, con, itr)
     return CheckedVoronoiCell(vc, cell_is_valid)
 end
 
-function compute_cell!(vc::CheckedVoronoiCell, con::AbstractRawContainer, itr)
-    cell_is_valid = __cxxwrap_compute_cell!(vc._cell, con, itr)
+function compute_cell!(vc::CheckedVoronoiCell, con::AbstractContainer, itr)
+    cell_is_valid = __cxxwrap_compute_cell!(vc._cell, __raw(con), itr)
     vc._valid = cell_is_valid
     return vc
 end
 
-function compute_cell!(vc::AbstractVoronoiCell, con::AbstractContainer, itr)
+function compute_cell!(vc::AbstractVoronoiCell, con::Tessellation, itr)
     return compute_cell!(vc, __raw(con), itr)
 end
 
 function compute_ghost_cell!(
     vc::CheckedVoronoiCell,
-    con::Container{<:RawContainer},
+    con::Tessellation{<:Container},
     (x, y, z)
 )
     cell = __raw(vc)
@@ -384,7 +388,7 @@ end
 
 function compute_ghost_cell!(
     vc::CheckedVoronoiCell,
-    con::Container{<:RawContainerPoly},
+    con::Tessellation{<:ContainerPoly},
     (x, y, z, r)
 )
     cell = __raw(vc)
@@ -397,7 +401,7 @@ end
 
 function compute_ghost_cell!(
     cell::VoronoiCell,
-    con::Container{<:RawContainer},
+    con::Tessellation{<:Container},
     (x, y, z)
 )
     raw_con = __raw(con)
@@ -409,7 +413,7 @@ end
 
 function compute_ghost_cell!(
     cell::VoronoiCell,
-    con::Container{<:RawContainerPoly},
+    con::Tessellation{<:ContainerPoly},
     (x, y, z, r)
 )
     raw_con = __raw(con)
@@ -421,20 +425,20 @@ end
 
 #############################
 
-__get_nu(vc::VoronoiCell) = reinterpret(Ptr{Int32}, __cxxwrap_get_nu(vc))
-__get_pts(vc::VoronoiCell) = reinterpret(Ptr{Float64}, __cxxwrap_get_pts(vc))
-__get_ed(vc::VoronoiCell) = reinterpret(Ptr{Ptr{Int32}}, __cxxwrap_get_ed(vc))
-__get_ne(vc::VoronoiCell) = reinterpret(Ptr{Ptr{Int32}}, __cxxwrap_get_ne(vc))
+__get_nu(vc::VoronoiCell) = reinterpret(Ptr{Int32}, __cxxwrap_nu(vc))
+__get_pts(vc::VoronoiCell) = reinterpret(Ptr{Float64}, __cxxwrap_pts(vc))
+__get_ed(vc::VoronoiCell) = reinterpret(Ptr{Ptr{Int32}}, __cxxwrap_ed(vc))
+__get_ne(vc::VoronoiCell) = reinterpret(Ptr{Ptr{Int32}}, __cxxwrap_ne(vc))
 
 function __vertex_ordering(vc::VoronoiCell)
     nu = __get_nu(vc)
-    total_vertices = __get_p(vc)
+    total_vertices = __cxxwrap_p(vc)
     return unsafe_wrap(Array, nu, (total_vertices,); own=false)
 end
 
 function __vertex_positions(vc::VoronoiCell)
     pts = __get_pts(vc)
-    total_vertices = __get_p(vc)
+    total_vertices = __cxxwrap_p(vc)
     return unsafe_wrap(Array, pts, (4*total_vertices,); own=false)
 end
 
@@ -449,7 +453,7 @@ end
 
 function __reset_edges!(
     vc::VoronoiCell,
-    p=__get_p(vc),
+    p=__cxxwrap_p(vc),
     nu=UnsafeIndexable(__get_nu(vc)),
     ed=UnsafeIndexable(__get_ed(vc))
 )
@@ -520,7 +524,7 @@ Return the number of vertices of the cell.
 """
 function number_of_vertices(vc::AbstractVoronoiCell)
     if_valid(vc, zero(Int32)) do cell
-        return __get_p(cell)
+        return __cxxwrap_p(cell)
     end
 end
 
@@ -538,7 +542,7 @@ end
 
 function vertex_orders!(ords::Vector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(ords)) do cell
-        p = __get_p(cell)
+        p = __cxxwrap_p(cell)
         nu = __get_nu(cell)
         resize!(ords, p)
         @inbounds for i in 1:p
@@ -550,7 +554,7 @@ end
 
 function vertex_orders!(ords::AbstractArray{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(ords)) do cell
-        p = __get_p(cell)
+        p = __cxxwrap_p(cell)
         nu = __get_nu(cell)
         if length(ords) != p
             throw(DimensionMismatch("Destination array length does not match number of vertices"))
@@ -580,7 +584,7 @@ end
 
 function vertex_positions!(pos::Vector{<:Number}, vc::VoronoiCell)
     vp_raw = __vertex_positions(vc)
-    len = __get_p(vc)
+    len = __cxxwrap_p(vc)
     if length(pos) != 3 * len
         resize!(pos, 3 * len)
     end
@@ -609,7 +613,7 @@ If `eltype(pos)` is numeric, then 3 vector elements are stored per vertex. Other
     end
     dr = offset[1], offset[2], offset[3]
     vp_raw = __vertex_positions(vc)
-    len = __get_p(vc)
+    len = __cxxwrap_p(vc)
     if length(pos) != 3 * len
         resize!(pos, 3 * len)
     end
@@ -622,7 +626,7 @@ end
 
 function vertex_positions!(pos::AbstractVector, vc::VoronoiCell)
     vp_raw = __vertex_positions(vc)
-    len = __get_p(vc)
+    len = __cxxwrap_p(vc)
     if length(pos) != len
         resize!(pos, len)
     end
@@ -638,7 +642,7 @@ end
         throw(DimensionMismatch("Offset for vertex positions must be a length-3 array or tuple"))
     end
     vp_raw = __vertex_positions(vc)
-    len = __get_p(vc)
+    len = __cxxwrap_p(vc)
     if length(pos) != len
         resize!(pos, len)
     end
@@ -653,7 +657,7 @@ end
     pos::AbstractArray{<:Number}, vc::VoronoiCell
 )
     vp_raw = __vertex_positions(vc)
-    len = __get_p(vc)
+    len = __cxxwrap_p(vc)
     @boundscheck if length(pos) != 3 * len
         throw(DimensionMismatch("The length of the output array does not match the size of vertex array"))
     end
@@ -671,7 +675,7 @@ end
     end
     dr = offset[1], offset[2], offset[3]
     vp_raw = __vertex_positions(vc)
-    len = __get_p(vc)
+    len = __cxxwrap_p(vc)
     @boundscheck if length(pos) != 3 * len
         throw(DimensionMismatch("The length of the output array does not match the size of vertex array"))
     end
@@ -734,7 +738,7 @@ Return the positions of cell vertices, optionally shifted by `offset`, as a 3xN 
 @propagate_inbounds function vertex_positions(
     ::Type{Matrix{T}}, vc::AbstractVoronoiCell, offset...
 ) where {T}
-    len = isvalid(vc) ? __get_p(vc) : zero(Int32)
+    len = isvalid(vc) ? __cxxwrap_p(vc) : zero(Int32)
     pos = Matrix{T}(undef, 3, len)
     if_valid(vc, pos) do cell
         vertex_positions!(pos, cell, offset...)
@@ -759,7 +763,7 @@ Fill `v` with neighbor IDs of the cell `vc`.
 """
 function get_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        p = __get_p(cell)
+        p = __cxxwrap_p(cell)
         nu = UnsafeIndexable(__get_nu(cell))
         ed = UnsafeIndexable(__get_ed(cell))
         ne = UnsafeIndexable(__get_ne(cell))
@@ -788,7 +792,7 @@ end
 
 function append_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, v) do cell
-        p = __get_p(cell)
+        p = __cxxwrap_p(cell)
         nu = UnsafeIndexable(__get_nu(cell))
         ed = UnsafeIndexable(__get_ed(cell))
         ne = UnsafeIndexable(__get_ne(cell))
@@ -817,7 +821,7 @@ end
 
 function get_neighbors!(v::StdVector{Int32}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        __cxxwrap_get_neighbors!(v, cell)
+        __cxxwrap_neighbors!(v, cell)
     end
     return v
 end
@@ -834,11 +838,11 @@ get_normals!
 
 function get_normals!(v::AbstractVector, vc::VoronoiCell)
     empty!(v)
-    tol = __get_tol(vc)
-    p = __get_p(vc)
+    tol = __cxxwrap_tol(vc)
+    p = __cxxwrap_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
-    pts = UnsafeIndexable(__get_pts(vc))
+    pts = UnsafeIndexable(__cxxwrap_pts(vc))
     for i in one(p)+true:p, j in OneTo(nu[i])
         k = ed[i, j] + true
         if k > zero(k)
@@ -916,10 +920,10 @@ Fill `v` with face perimeters of cell `vc`.
 """
 function get_face_perimeters!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        p = __get_p(cell)
+        p = __cxxwrap_p(cell)
         nu = UnsafeIndexable(__get_nu(cell))
         ed = UnsafeIndexable(__get_ed(cell))
-        pts = UnsafeIndexable(__get_pts(cell))
+        pts = UnsafeIndexable(__cxxwrap_pts(cell))
         for i in one(p)+true:p, j in OneTo(nu[i])
             k = ed[i, j] + true
             if k > zero(k)
@@ -976,10 +980,10 @@ Fill `v` with face areas of cell `vc`.
 """
 function get_face_areas!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        p = __get_p(cell)
-        nu = UnsafeIndexable(__get_nu(cell))
-        ed = UnsafeIndexable(__get_ed(cell))
-        pts = UnsafeIndexable(__get_pts(cell))
+        p = __cxxwrap_p(vc)
+        nu = UnsafeIndexable(__get_nu(vc))
+        ed = UnsafeIndexable(__get_ed(vc))
+        pts = UnsafeIndexable(__cxxwrap_pts(vc))
         for i in one(p)+true:p, j in OneTo(nu[i])
             k = ed[i, j] + true
             if k > zero(k)
@@ -1026,7 +1030,7 @@ end
 function get_face_vertices!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
         vp = 1
-        p = __get_p(cell)
+        p = __cxxwrap_p(cell)
         nu = UnsafeIndexable(__get_nu(cell))
         ed = UnsafeIndexable(__get_ed(cell))
 
@@ -1064,7 +1068,7 @@ end
 
 function get_face_orders!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        p = __get_p(vc)
+        p = __cxxwrap_p(vc)
         nu = UnsafeIndexable(__get_nu(cell))
         ed = UnsafeIndexable(__get_ed(cell))
         for i in one(p)+true:p, j in OneTo(nu[i])
@@ -1124,10 +1128,10 @@ Outputs the edges of the Voronoi cell in gnuplot format to an output stream or
     to a file given by name. `disp` is a displacement to add to cell position.
 """
 function draw_gnuplot(io::IO, vc::VoronoiCell, (dx, dy, dz) = (0.0, 0.0, 0.0))
-    p = __get_p(vc)
+    p = __cxxwrap_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
-    pts = UnsafeIndexable(__get_pts(vc))
+    pts = UnsafeIndexable(__cxxwrap_pts(vc))
 
     fmt = Format("%g %g %g\n")
     for i in one(p)+true:p, j in OneTo(nu[i])
@@ -1166,10 +1170,10 @@ Outputs the edges of the Voronoi cell in POV-Ray format to an output stream or
     to a file given by name. `disp` is a displacement to add to cell position.
 """
 function draw_pov(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
-    p = __get_p(vc)
+    p = __cxxwrap_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
-    pts = UnsafeIndexable(__get_pts(vc))
+    pts = UnsafeIndexable(__cxxwrap_pts(vc))
 
     fmtbuf = Format("%g,%g,%g")
     fmt1 = Format("sphere{<%s>,r}\n")
@@ -1213,10 +1217,10 @@ Outputs the edges of the Voronoi cell in POV-Ray Mesh format to an output stream
     to a file given by name. `disp` is a displacement to add to cell position.
 """
 function draw_pov_mesh(io::IO, vc::VoronoiCell, (dx, dy, dz)=(0.0, 0.0, 0.0))
-    p = __get_p(vc)
+    p = __cxxwrap_p(vc)
     nu = UnsafeIndexable(__get_nu(vc))
     ed = UnsafeIndexable(__get_ed(vc))
-    pts = UnsafeIndexable(__get_pts(vc))
+    pts = UnsafeIndexable(__cxxwrap_pts(vc))
 
     format(io, Format("mesh2 {\nvertex_vectors {\n%d\n"), p)
     fmt_pt = Format(",<%g,%g,%g>\n")

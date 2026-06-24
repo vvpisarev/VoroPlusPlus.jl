@@ -1,13 +1,13 @@
 """
-    __container_iterator(con::AbstractRawContainer, ord::ContainerIterationOrder)
+    __container_iterator(con::AbstractContainer, ord::ContainerIterationOrder)
 
 Return an iterator over the container according to the ordering represented by `ord`.
 """
-function __container_iterator(con::AbstractRawContainer, ::UnspecifiedOrder)
-    return RawContainerIterator(con)
+function __container_iterator(con::AbstractContainer, ::UnspecifiedOrder)
+    return ContainerIterator(con)
 end
 
-function __container_iterator(con::AbstractRawContainer, ord::InsertionOrder)
+function __container_iterator(con::AbstractContainer, ord::InsertionOrder)
     return InsertionOrderIterator(con, ord)
 end
 
@@ -31,47 +31,47 @@ function __next!(itr_state)
     return Bool(__cxxwrap_inc!(itr_state))
 end
 
-function Base.iterate(con::Container)
+function Base.iterate(con::Tessellation)
     itor = __container_iterator(con.con, con.ord)
     !__start!(itor) && return nothing
-    cell = CheckedVoronoiCell(con, itor)
-    particle_tup = particle_info(itor)
-    particle = Particle(con, particle_tup)
+    cell = CheckedVoronoiCell(con.con, itor)
+    particle_tup = __cxxwrap_particle_info(itor)
+    particle = Particle(con.con, particle_tup)
     return (particle => cell), (__next!(itor), itor, cell)
 end
 
-function Base.iterate(con::Container, (hasnext, itor, cell))
+function Base.iterate(con::Tessellation, (hasnext, itor, cell))
     hasnext || return nothing
     cell = compute_cell!(cell, con, itor)
-    particle_tup = particle_info(itor)
-    particle = Particle(con, particle_tup)
+    particle_tup = __cxxwrap_particle_info(itor)
+    particle = Particle(con.con, particle_tup)
     return (particle => cell), (__next!(itor), itor, cell)
 end
 
-struct EachCell{C<:AbstractContainer}
+struct EachCell{C<:Tessellation}
     con::C
 end
 
-struct EachParticle{C<:AbstractContainer}
+struct EachParticle{C<:Tessellation}
     con::C
 end
 
 """
-    eachcell(con::AbstractContainer)
+    eachcell(tessel::Tessellation)
 
 Return an iterable which produces only the Voronoi cells upon iteration.
 """
-function eachcell(con::AbstractContainer)
-    return EachCell(con)
+function eachcell(tessel::Tessellation)
+    return EachCell(tessel)
 end
 
 """
-    eachcell(con::AbstractContainer)
+    eachparticle(tessel::Tessellation)
 
 Return an iterable which produces only the particles data upon iteration.
 """
-function eachparticle(con::AbstractContainer)
-    return EachParticle(con)
+function eachparticle(tessel::Tessellation)
+    return EachParticle(tessel)
 end
 
 function Base.iterate(con::EachCell)
@@ -95,7 +95,7 @@ function Base.iterate(con::EachParticle)
     ord = ordering(con.con)
     itor = __container_iterator(raw_con, ord)
     !__start!(itor) && return nothing
-    particle_tup = particle_info(itor)
+    particle_tup = __cxxwrap_particle_info(itor)
     particle = Particle(raw_con, particle_tup)
     return particle, (__next!(itor), itor)
 end
@@ -103,12 +103,12 @@ end
 function Base.iterate(con::EachParticle, (hasnext, itor))
     hasnext || return nothing
     raw_con = __raw(con.con)
-    particle_tup = particle_info(itor)
+    particle_tup =__cxxwrap_particle_info(itor)
     particle = Particle(raw_con, particle_tup)
     return particle, (__next!(itor), itor)
 end
 
-function Base.isdone(::Union{AbstractContainer,EachCell,EachParticle}, (hasnext,))
+function Base.isdone(::Union{Tessellation,EachCell,EachParticle}, (hasnext,))
     return !hasnext
 end
 
@@ -116,12 +116,12 @@ Base.eltype(::Type{<:EachCell}) = CheckedVoronoiCell
 
 Base.eltype(::Type{<:EachParticle{C}}) where {C} = particle_type(C)
 
-function Base.eltype(::Type{C}) where {C<:AbstractContainer}
+function Base.eltype(::Type{C}) where {C<:Tessellation}
     PT = particle_type(C)
     return Pair{PT, CheckedVoronoiCell}
 end
 
-Base.IteratorSize(::Type{<:AbstractContainer}) = Base.SizeUnknown()
+Base.IteratorSize(::Type{<:Tessellation}) = Base.SizeUnknown()
 
 Base.IteratorSize(::Type{<:EachParticle}) = Base.SizeUnknown()
 

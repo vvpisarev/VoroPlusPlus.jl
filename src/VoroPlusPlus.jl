@@ -1,5 +1,6 @@
 module VoroPlusPlus
     using Base: OneTo, @propagate_inbounds
+    using Base.Threads: @spawn
     using CxxWrap
     using LinearAlgebra: Hermitian, dot, eigen
     using Preferences
@@ -38,11 +39,7 @@ module VoroPlusPlus
     #export apply_walls!
 
     # Functions for Container Iterator_Subset(c_loop_subset) Class
-    export Container_Iterator_Subset
-    export cis_start, cis_next, cis_pos
-    export ci_x, ci_y, ci_z, ci_pid
-    export cis_setup_sphere, cis_setup_box, cis_setup_intbox
-    export cis_x, cis_y, cis_z, cis_pid
+    export ContainerSubsetIterator
 
     # Functions for VoronoiCell Class
     export VoronoiCell
@@ -116,13 +113,13 @@ module VoroPlusPlus
 
         include("config.jl")
         include("nested_ptr.jl")
-        include("container.jl")
+        include("tessellation.jl")
         include("particle_info.jl")
         include("file_import.jl")
         include("cell.jl")
         include("iteration.jl")
         include("walls.jl")
-        #include("container_prd.jl")
+        include("parallel/tessellation.jl")
 
         function __init__()
             @initcxx
