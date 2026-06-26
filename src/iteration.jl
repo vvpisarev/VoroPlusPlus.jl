@@ -35,16 +35,16 @@ function Base.iterate(con::Tessellation)
     itor = __container_iterator(con.con, con.ord)
     !__start!(itor) && return nothing
     cell = CheckedVoronoiCell(con.con, itor)
-    particle_tup = __cxxwrap_particle_info(itor)
-    particle = Particle(con.con, particle_tup)
+    (; x, y, z, r, id) = __cxxwrap_particle_info(itor)
+    particle = Particle(con.con, (id, x, y, z, r))
     return (particle => cell), (__next!(itor), itor, cell)
 end
 
 function Base.iterate(con::Tessellation, (hasnext, itor, cell))
     hasnext || return nothing
     cell = compute_cell!(cell, con, itor)
-    particle_tup = __cxxwrap_particle_info(itor)
-    particle = Particle(con.con, particle_tup)
+    (; x, y, z, r, id) = __cxxwrap_particle_info(itor)
+    particle = Particle(con.con, (id, x, y, z, r))
     return (particle => cell), (__next!(itor), itor, cell)
 end
 
@@ -95,16 +95,16 @@ function Base.iterate(con::EachParticle)
     ord = ordering(con.con)
     itor = __container_iterator(raw_con, ord)
     !__start!(itor) && return nothing
-    particle_tup = __cxxwrap_particle_info(itor)
-    particle = Particle(raw_con, particle_tup)
+    (; x, y, z, r, id) = __cxxwrap_particle_info(itor)
+    particle = Particle(con.con, (id, x, y, z, r))
     return particle, (__next!(itor), itor)
 end
 
 function Base.iterate(con::EachParticle, (hasnext, itor))
     hasnext || return nothing
     raw_con = __raw(con.con)
-    particle_tup =__cxxwrap_particle_info(itor)
-    particle = Particle(raw_con, particle_tup)
+    (; x, y, z, r, id) = __cxxwrap_particle_info(itor)
+    particle = Particle(con.con, (id, x, y, z, r))
     return particle, (__next!(itor), itor)
 end
 

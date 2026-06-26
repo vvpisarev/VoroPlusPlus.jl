@@ -213,7 +213,8 @@ Return the centroid vector of a valid Voronoi cell or a zero vector if the cell 
 """
 function centroid(vc::AbstractVoronoiCell)
     if_valid(vc, SVector(0.0, 0.0, 0.0)) do cell
-        return SVector{3,Float64}(__cxxwrap_centroid(cell))
+        (; x, y, z) = __cxxwrap_centroid(cell)
+        return SVector{3,Float64}(x, y, z)
     end
 end
 

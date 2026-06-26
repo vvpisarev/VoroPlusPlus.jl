@@ -322,13 +322,13 @@ end
 end
 
 """
-    bounding_box(con::AbstractContainer)
+    bounding_box(con::Tessellation)
 
 Return tuple `((xmin, ymin, zmin), (xmax, ymax, zmax))`.
 """
-function bounding_box(con::Tessellation)
-    xlo, ylo, zlo, xhi, yhi, zhi = __cxxwrap_bounds(__raw(con))
-    return (xlo, ylo, zlo), (xhi, yhi, zhi)
+function bounding_box(con::Tessellation{<:Union{<:Container,<:ContainerPoly}})
+    (; ax, ay, az, bx, by, bz) = __cxxwrap_bounds(__raw(con))
+    return (ax, ay, az), (bx, by, bz)
 end
 
 """
@@ -353,7 +353,8 @@ end
 Return periodicity flags in X, Y, Z directions.
 """
 function periodicity(con::Tessellation)
-    return Bool.(__cxxwrap_periodic(__raw(con)))
+    (; px, py, pz) = __cxxwrap_periodic(__raw(con))
+    return px, py, pz
 end
 
 """
@@ -408,10 +409,10 @@ function nearest_particle(con::Tessellation, pos)
     if eachindex(pos) != OneTo(3)
         throw(ArgumentError("Can only test 3D vectors in container"))
     end
-    x, y, z = pos
-    xx, yy, zz = Float64.((x, y, z))
-    found, id, px, py, pz = __cxxwrap_find_cell(__raw(con), xx, yy, zz)
-    return (Bool(found), Particle(id, (px, py, pz)))
+    tx, ty, tz = pos
+    xx, yy, zz = Float64.((tx, ty, tz))
+    (; x, y, z, r, id) = __cxxwrap_find_voronoi_cell(__raw(con), xx, yy, zz)
+    return Particle(id, SVector(x, y, z), nothing)
 end
 
 """
@@ -435,7 +436,7 @@ end
 function __draw_domain_gnuplot(io::IO, con::AbstractContainer)
     fmt1 = Format("%g %g %g\n%g %g %g\n%g %g %g\n%g %g %g\n")
     fmt2 = Format("%g %g %g\n%g %g %g\n\n%g %g %g\n%g %g %g\n\n")
-    ax, ay, az, bx, by, bz = __cxxwrap_bounds(con)
+    (;ax, ay, az, bx, by, bz) = __cxxwrap_bounds(con)
     format(io, fmt1, ax, ay, az, bx, ay, az, bx, by, az, ax, by, az)
     format(io, fmt1, ax, ay, az, ax, ay, bz, bx, ay, bz, bx, by, bz)
     format(io, fmt2, ax, by, bz, ax, ay, bz, ax, by, az, ax, by, bz)

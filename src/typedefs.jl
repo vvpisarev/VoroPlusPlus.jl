@@ -54,3 +54,40 @@ A data structure to store the order of inserted particles into a Voronoi contain
     `voro::particle_order` type.
 """
 InsertionOrder
+
+struct CxxBoxBounds
+    ax::Float64
+    ay::Float64
+    az::Float64
+    bx::Float64
+    by::Float64
+    bz::Float64
+end
+
+struct CxxPBC
+    px::Bool
+    py::Bool
+    pz::Bool
+end
+
+struct CxxParticleInfo
+    x::Float64
+    y::Float64
+    z::Float64
+    r::Float64
+    id::Int32
+end
+
+struct CxxVec3D
+    x::Float64
+    y::Float64
+    z::Float64
+end
+
+struct CxxLoopIndices
+    i::Int32
+    j::Int32
+    k::Int32
+    ijk::Int32
+    q::Int32
+end

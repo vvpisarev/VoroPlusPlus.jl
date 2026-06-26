@@ -80,7 +80,7 @@ module VoroPlusPlus
     ####################################################3
 
     function set_wrapper_path(path::AbstractString=voropp_wrapper_jll.libvoropp_wrap_path)
-        lib_suffix = Sys.iswindows() ? ".dll" : Sys.isapple ? ".dylib" : ".so"
+        lib_suffix = Sys.iswindows() ? ".dll" : Sys.isapple() ? ".dylib" : ".so"
         libfile = "libvoro++wrap" * lib_suffix
         # Set it in our runtime values, as well as saving it to disk
         if isfile(path)
