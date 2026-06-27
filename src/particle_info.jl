@@ -24,6 +24,16 @@ function Particle(::ContainerPoly, (id, x, y, z, r))
     return Particle{Float64}(id, (x, y, z), r)
 end
 
+function Particle(::Container, pinfo::CxxParticleInfo)
+    (; id, x, y, z) = pinfo
+    return Particle{Nothing}(id, (x, y, z), nothing)
+end
+
+function Particle(::ContainerPoly, pinfo::CxxParticleInfo)
+    (; id, x, y, z, r) = pinfo
+    return Particle{Float64}(id, (x, y, z), r)
+end
+
 Particle(con::Tessellation, itr...) = Particle(__raw(con), itr...)
 
 @propagate_inbounds function add_point!(con::Tessellation{<:Container}, p::Particle)
