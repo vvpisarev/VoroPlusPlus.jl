@@ -1,9 +1,9 @@
 """
-    add_wall!(con::AbstractContainer, w::AbstractWall)
+    add_wall!(con::Union{AbstractContainer,AbstractTessellation}, w::AbstractWall)
 
 Add wall `w` to container `con`.
 """
-function add_wall!(con::AbstractContainer, w::AbstractWall)
+function add_wall!(con::Union{AbstractContainer,Tessellation}, w::AbstractWall)
     __cxxwrap_add_wall!(__raw(con), w)
     return con
 end
@@ -19,7 +19,7 @@ end
 
 Check if point `pt` is inside all walls added to `con`.
 """
-function point_inside_walls(pt, con::AbstractContainer)
+function point_inside_walls(pt, con::Union{AbstractContainer,Tessellation})
     x, y, z = pt
     xx, yy, zz = Float64.((x, y, z))
     return convert(Bool, __cxxwrap_point_inside_walls(__raw(con), xx, yy, zz))
@@ -78,7 +78,7 @@ function wall_cylinder(origin, axis, radius::Real)
     ax, ay, az = axis
     xa, ya, za = Float64.((ax, ay, az))
     r = Float64(radius)
-    return WallSphere(xc, yc, zc, xa, ya, za, r)
+    return WallCylinder(xc, yc, zc, xa, ya, za, r)
 end
 
 function wall_cylinder(origin, axis, radius::Real, wid::Integer)
@@ -87,7 +87,7 @@ function wall_cylinder(origin, axis, radius::Real, wid::Integer)
     ax, ay, az = axis
     xa, ya, za = Float64.((ax, ay, az))
     r = Float64(radius)
-    return WallSphere(xc, yc, zc, xa, ya, za, r, wid)
+    return WallCylinder(xc, yc, zc, xa, ya, za, r, wid)
 end
 
 """

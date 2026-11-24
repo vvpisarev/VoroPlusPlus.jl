@@ -180,12 +180,10 @@ end
 
 Return the volume of the Voronoi cell. For invalid cells, return 0.0.
 """
-function volume(vc::CheckedVoronoiCell)
-    isvalid(vc) ? __cxxwrap_volume(vc._cell) : 0.0
-end
-
-function volume(vc::VoronoiCell)
-    return __cxxwrap_volume(vc)
+function volume(vc::AbstractVoronoiCell)
+    return if_valid(vc, 0.0) do cell
+        __cxxwrap_volume(cell)
+    end
 end
 
 """
@@ -193,8 +191,10 @@ end
 
 Return the number of faces of the Voronoi cell. For invalid cells, return zero.
 """
-function number_of_faces(vc::CheckedVoronoiCell)
-    isvalid(vc) ? number_of_faces(vc._cell) : zero(Int32)
+function number_of_faces(vc::AbstractVoronoiCell)
+    return if_valid(vc, zero(Int32)) do cell
+        __cxxwrap_number_of_faces(cell)
+    end
 end
 
 """
@@ -202,8 +202,10 @@ end
 
 Return the number of edges of the Voronoi cell. For invalid cells, return zero.
 """
-function number_of_edges(vc::CheckedVoronoiCell)
-    isvalid(vc) ? number_of_edges(vc._cell) : zero(Int32)
+function number_of_edges(vc::AbstractVoronoiCell)
+    return if_valid(vc, zero(Int32)) do cell
+        __cxxwrap_number_of_edges(cell)
+    end
 end
 
 """
@@ -490,9 +492,9 @@ end
 
 Compute the maximum radius squared of a vertex from the center of the cell.
 """
-function max_radius_squared(vc::CheckedVoronoiCell)
+function max_radius_squared(vc::AbstractVoronoiCell)
     if_valid(vc, 0.0) do cell
-        return max_radius_squared(cell)
+        return __cxxwrap_max_radius_squared(cell)
     end
 end
 
@@ -501,9 +503,9 @@ end
 
 Compute the sum of edge lengths for the cell.
 """
-function total_edge_distance(vc::CheckedVoronoiCell)
+function total_edge_distance(vc::AbstractVoronoiCell)
     if_valid(vc, 0.0) do cell
-        return total_edge_distance(cell)
+        return __cxxwrap_total_edge_distance(cell)
     end
 end
 
@@ -512,9 +514,9 @@ end
 
 Compute the total surface area of the cell.
 """
-function surface_area(vc::CheckedVoronoiCell)
+function surface_area(vc::AbstractVoronoiCell)
     if_valid(vc, 0.0) do cell
-        return surface_area(cell)
+        return __cxxwrap_surface_area(cell)
     end
 end
 
@@ -536,7 +538,7 @@ Fill `ords` with vertex orders of the cell.
 """
 function vertex_orders!(ords::StdVector{Int32}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(ords)) do cell
-        __cxxwrap_get_vertex_orders!(cell)
+        __cxxwrap_vertex_orders!(ords, cell)
         return ords
     end
 end
@@ -544,7 +546,7 @@ end
 function vertex_orders!(ords::Vector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(ords)) do cell
         p = __cxxwrap_p(cell)
-        nu = __get_nu(cell)
+        nu = UnsafeIndexable(__get_nu(cell))
         resize!(ords, p)
         @inbounds for i in 1:p
             ords[i] = nu[i]
@@ -556,7 +558,7 @@ end
 function vertex_orders!(ords::AbstractArray{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(ords)) do cell
         p = __cxxwrap_p(cell)
-        nu = __get_nu(cell)
+        nu = UnsafeIndexable(__get_nu(cell))
         if length(ords) != p
             throw(DimensionMismatch("Destination array length does not match number of vertices"))
         end
@@ -789,6 +791,15 @@ function get_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
         __reset_edges!(cell, p, nu, ed)
         return v
     end
+end
+
+"""
+    neighbors(vc::AbstractVoronoiCell) -> Vector{Int32}
+
+Return a vector of neighbor IDs of the cell `vc`.
+"""
+function neighbors(vc::AbstractVoronoiCell)
+    return get_neighbors!(Int32[], vc)
 end
 
 function append_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)

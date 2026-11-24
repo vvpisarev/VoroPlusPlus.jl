@@ -282,8 +282,15 @@ function __add_point!(
     return con
 end
 
+# """
+#     max_radius(con::Tessellation)
+#
+# Return the maximum particle radius in the tessellation.
+# """
+# max_radius(con::Tessellation) = __cxxwrap_max_radius(__raw(con))
+
 """
-    add_point!(con::Container, id, (x, y, z[, r]))
+    add_point!(con::Tessellation, id, (x, y, z[, r]))
 
 Add a point to a container `con`.
 # Arguments:
@@ -348,7 +355,7 @@ function Base.empty!(con::Tessellation{C,O}) where {C,O}
 end
 
 """
-    periodicity(con::AbstractContainer)
+    periodicity(con::AbstractTessellation)
 
 Return periodicity flags in X, Y, Z directions.
 """
@@ -358,7 +365,7 @@ function periodicity(con::Tessellation)
 end
 
 """
-    ordering(con::Container)
+    ordering(con::AbstractTessellation)
 
 Return the object representing ordering of the container.
 """
@@ -367,7 +374,7 @@ ordering(con::Tessellation) = con.ord
 ordering(::AbstractContainer) = UnspecifiedOrder()
 
 """
-    isinside(pos, con::AbstractContainer)
+    isinside(pos, con::AbstractTessellation)
 
 Test if a given vector lies within the container bounds and any walls.
 """
@@ -377,33 +384,38 @@ function isinside(pos, con::Tessellation)
     end
     x, y, z = pos
     xx, yy, zz = Float64.((x, y, z))
-    return Bool(__cxxwrap_isinside(__raw(con), xx, yy, zz))
+    return Bool(__cxxwrap_point_inside(__raw(con), xx, yy, zz))
 end
 
 """
-    total_particles(con::AbstractContainer)
+    total_particles(con::AbstractTessellation)
 
 Return the total number of points in the container.
 """
 function total_particles(con::Tessellation)
-    return total_particles(__raw(con))
+    return __cxxwrap_total_particles(__raw(con))
 end
 
 """
-    compute_all_cells(con::AbstractContainer)
+    compute_all_cells(con::AbstractTessellation)
 
 Computes all of the Voronoi cells in the container, but does nothing with the output. It is
     useful for measuring the pure computation time of the Voronoi algorithm, without any
     additional calculations such as volume evaluation or cell output.
 """
 function compute_all_cells(con::Tessellation)
-    return compute_all_cells(__raw(con))
+    return __cxxwrap_compute_all_cells(__raw(con))
 end
 
 """
-    nearest_particle(con::AbstractContainer, pos)
+    nearest_particle(con::AbstractTessellation, pos)
 
-Return the parameter of the particle nearest to the position `pos`.
+Return the ID and position of the particle nearest to the position `pos`.
+    The position is `NaN` if the search did not succeed.
+
+The return is always a `Particle` without radius information, even
+    for polydisperse tessellation, because the radius is not exposed upstream
+    in the wrapped function.
 """
 function nearest_particle(con::Tessellation, pos)
     if eachindex(pos) != OneTo(3)
@@ -412,11 +424,15 @@ function nearest_particle(con::Tessellation, pos)
     tx, ty, tz = pos
     xx, yy, zz = Float64.((tx, ty, tz))
     (; x, y, z, r, id) = __cxxwrap_find_voronoi_cell(__raw(con), xx, yy, zz)
-    return Particle(id, SVector(x, y, z), nothing)
+    if r > 0
+        return Particle(id, SVector(x, y, z), nothing)
+    else
+        return Particle(id, SVector(NaN, NaN, NaN), nothing)
+    end
 end
 
 """
-    draw_domain_gnuplot(file, con::AbstractContainer)
+    draw_domain_gnuplot(file, con::AbstractTessellation)
 
 Export the bounding box of the container in Gnuplot format. `file` can be a path or an `IO`
     object.
@@ -444,7 +460,7 @@ function __draw_domain_gnuplot(io::IO, con::AbstractContainer)
 end
 
 """
-    draw_gnuplot(prefix::AbstractString, con::AbstractContainer; domain::Bool=false, cells::Bool=true, particles::Bool=true)
+    draw_gnuplot(prefix::AbstractString, con::AbstractTessellation; domain::Bool=false, cells::Bool=true, particles::Bool=true)
 
 Export container data to text files in gnuplot format. If `prefix` does not have asterisks,
     then files with domain, cells and particles data are named `prefix_domain.gnu`,
@@ -515,17 +531,17 @@ function draw_gnuplot(
 end
 
 """
-    draw_cells_pov(path::AbstractString, con::AbstractContainer)
+    draw_cells_pov(path::AbstractString, con::AbstractTessellation)
 
 Export the cells geometry in POV-Ray format.
 """
 function draw_cells_pov(path::AbstractString, con::Tessellation)
-    draw_cells_pov(__raw(con), path)
+    __cxxwrap_draw_cells_pov(__raw(con), path)
     return nothing
 end
 
 """
-    draw_cells_gnuplot(path::AbstractString, con::AbstractContainer)
+    draw_cells_gnuplot(path::AbstractString, con::AbstractTessellation)
 
 Export the cells geometry in Gnuplot format.
 """
@@ -535,17 +551,17 @@ function draw_cells_gnuplot(path::AbstractString, con::Tessellation)
 end
 
 """
-    draw_particles_pov(path::AbstractString, con::AbstractContainer)
+    draw_particles_pov(path::AbstractString, con::AbstractTessellation)
 
 Export the particles in POV-Ray format.
 """
 function draw_particles_pov(path::AbstractString, con::Tessellation)
-    __cxxwrap_draw_particles_pov_filename(__raw(con), path)
+    __cxxwrap_draw_particles_pov(__raw(con), path)
     return nothing
 end
 
 """
-    draw_particles(path::AbstractString, con::AbstractContainer)
+    draw_particles(path::AbstractString, con::AbstractTessellation)
 
 Export the particles information in text format.
 """
@@ -555,7 +571,7 @@ function draw_particles(path::AbstractString, con::Tessellation)
 end
 
 """
-    draw_pov(prefix::AbstractString, con::AbstractContainer; domain::Bool=false, cells::Bool=true, particles::Bool=true)
+    draw_pov(prefix::AbstractString, con::AbstractTessellation; domain::Bool=false, cells::Bool=true, particles::Bool=true)
 
 Export container data to text files in POV-Ray format. If `prefix` does not have asterisks,
     then files with domain, cells and particles data are named `prefix_domain.pov`,
@@ -584,11 +600,11 @@ function draw_pov(
     end
 
     if cells
-        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.gnu"
+        cells_path = astcnt > 0 ? replace(fmask, '*' => "cells") : fmask * "_cells.pov"
         __cxxwrap_draw_cells_pov(raw_con, cells_path)
     end
     if particles
-        pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.gnu"
+        pts_path = astcnt > 0 ? replace(fmask, '*' => "pts") : fmask * "_pts.pov"
         __cxxwrap_draw_particles_pov(raw_con, pts_path)
     end
 end
