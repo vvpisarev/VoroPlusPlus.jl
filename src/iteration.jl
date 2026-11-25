@@ -48,11 +48,11 @@ function Base.iterate(con::Tessellation, (hasnext, itor, cell))
     return (particle => cell), (__next!(itor), itor, cell)
 end
 
-struct EachCell{C<:Tessellation}
+struct EachCell{C}
     con::C
 end
 
-struct EachParticle{C<:Tessellation}
+struct EachParticle{C}
     con::C
 end
 

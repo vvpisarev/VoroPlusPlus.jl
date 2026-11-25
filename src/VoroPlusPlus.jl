@@ -35,11 +35,15 @@ module VoroPlusPlus
     #export initialize_search, frac_pos
     #export region_index, draw_domain_gnuplot
     export draw_domain_pov, total_particles
+    export sphere_region, box_region
     #Defined outside type Container, as an anonymus function
     #export compute_cell!
     #export apply_walls!
 
-    # Functions for Container Iterator_Subset(c_loop_subset) Class
+    # Low-level C++ loop object (`voro::c_loop_subset`) backing `VoroPlusPlus.Subset`.
+    # Exported for backwards compatibility and as an escape hatch; prefer
+    # `sphere_region`/`box_region` — raw use is unsafe on periodic containers
+    # (see docs/src/iteration.md and .known_issues #18).
     export ContainerSubsetIterator
 
     # Functions for VoronoiCell Class
@@ -119,6 +123,7 @@ module VoroPlusPlus
         include("file_import.jl")
         include("cell.jl")
         include("iteration.jl")
+        include("subset.jl")
         include("walls.jl")
         include("parallel/tessellation.jl")
 
