@@ -384,7 +384,11 @@ function isinside(pos, con::Tessellation)
     end
     x, y, z = pos
     xx, yy, zz = Float64.((x, y, z))
-    return Bool(__cxxwrap_point_inside(__raw(con), xx, yy, zz))
+    if any(!isfinite, (xx, yy, zz))
+        return false
+    else
+        return Bool(__cxxwrap_point_inside(__raw(con), xx, yy, zz))
+    end
 end
 
 """

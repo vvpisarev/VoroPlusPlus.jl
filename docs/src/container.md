@@ -4,16 +4,16 @@ Container is a box in which the tessellation is performed.
 
 Voro++ supports periodic and non-periodic mono- and polydisperse containers.
 
-VoroPlusPlus.jl type `Container` encapsulates `container` or `container_poly` object 
+# Tessellation
+
+`VoroPlusPlus.Tessellation` encapsulates `container` or `container_poly` object 
 from Voro++ with an ordering object.
 
-## Creating a container
+## Creating a tessellation over pre-specified points
 
-### Allocate an empty container
+### Pass coordinates as array
 ```@docs
-VoroPlusPlus.container
-
-VoroPlusPlus.polydisperse_container
+VoroPlusPlus.voronoi_tessellation
 ```
 
 ### Read particle data from file

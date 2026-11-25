@@ -22,6 +22,7 @@ module VoroPlusPlus
     export voronoi_tessellation
     export bounding_box, periodicity, ordering
     export add_point!
+    export isinside
     export read_particles, read_polydisperse_particles, read_particles!
     export draw_particles, draw_cells_gnuplot
     export draw_particles_pov
@@ -60,8 +61,8 @@ module VoroPlusPlus
     export get_face_orders!, face_orders
     export draw_pov, draw_pov_mesh
     export plane_intersects
-    # Implemented with extern C
     export draw_gnuplot
+    export if_valid
 
     # Functions for Containter Periodic Poly (conprdply) Class
     # export Container_Periodic_Poly

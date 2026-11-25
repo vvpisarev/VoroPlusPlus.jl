@@ -38,14 +38,14 @@ abstract type AbstractWall end
 
 Wrapper for Voro++ `container` type.
 """
-RawContainer
+Container
 
 """
     RawContainerPoly
 
 Wrapper for Voro++ `container_poly` type.
 """
-RawContainerPoly
+ContainerPoly
 
 """
     InsertionOrder()

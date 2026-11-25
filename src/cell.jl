@@ -60,6 +60,14 @@ CheckedVoronoiCell(con::Tessellation, itor) = CheckedVoronoiCell(__raw(con), ito
 
 Base.copy(vc::CheckedVoronoiCell) = CheckedVoronoiCell(copy(vc._cell), vc._valid)
 
+function Base.copyto!(dest::CheckedVoronoiCell, src::CheckedVoronoiCell)
+    _dest = dest._cell
+    _src = src._cell
+    __cxxwrap_copyto!(_dest, _src)
+    dest._valid = src._valid
+    return dest
+end
+
 __raw(vc::CheckedVoronoiCell) = vc._cell
 __raw(vc::VoronoiCell) = vc
 
@@ -68,8 +76,8 @@ __raw(vc::VoronoiCell) = vc
 
 Check if Voronoi cell is computed properly.
 """
-isvalid(vc::CheckedVoronoiCell) = vc._valid
-isvalid(::VoronoiCell) = true
+Base.isvalid(vc::CheckedVoronoiCell) = vc._valid
+Base.isvalid(::VoronoiCell) = true
 
 """
     if_valid(fn, vc::CheckedVoronoiCell, default=nothing)
@@ -376,6 +384,16 @@ function compute_cell!(vc::AbstractVoronoiCell, con::Tessellation, itr)
     return compute_cell!(vc, __raw(con), itr)
 end
 
+"""
+    compute_ghost_cell!(vc::CheckedVoronoiCell, con::Tessellation{<:Container}, (x, y, z))
+
+Compute the ghost cell for a particle located at position `(x, y, z)`.
+
+# Limitations
+
+The position must be strictly inside the tessellation bounds, even for periodic boundaries.
+    If any of the coordinates is outside bounds or `NaN`, the cell is marked as invalid.
+"""
 function compute_ghost_cell!(
     vc::CheckedVoronoiCell,
     con::Tessellation{<:Container},
@@ -384,11 +402,24 @@ function compute_ghost_cell!(
     cell = __raw(vc)
     raw_con = __raw(con)
     xx, yy, zz = Float64.((x, y, z))
-
-    vc._valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz)
+    if isinside((xx, yy, zz), con)
+        vc._valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz)
+    else
+        vc._valid = false
+    end
     return vc
 end
 
+"""
+    compute_ghost_cell!(vc::CheckedVoronoiCell, con::Tessellation{<:Container}, (x, y, z, r))
+
+Compute the ghost cell for a particle of radius `r` located at position `(x, y, z)`.
+
+# Limitations
+
+The position must be strictly inside the tessellation bounds, even for periodic boundaries.
+    If any of the coordinates is outside bounds or `NaN`, the cell is marked as invalid.
+"""
 function compute_ghost_cell!(
     vc::CheckedVoronoiCell,
     con::Tessellation{<:ContainerPoly},
@@ -397,8 +428,11 @@ function compute_ghost_cell!(
     cell = __raw(vc)
     raw_con = __raw(con)
     xx, yy, zz, rr = Float64.((x, y, z, r))
-
-    vc._valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz, rr)
+    if isinside((xx, yy, zz), con)
+        vc._valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz, rr)
+    else
+        vc._valid = false
+    end
     return vc
 end
 
@@ -409,8 +443,11 @@ function compute_ghost_cell!(
 )
     raw_con = __raw(con)
     xx, yy, zz = Float64.((x, y, z))
-
-    valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz)
+    if isinside((xx, yy, zz), con)
+        valid = Bool(__cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz))
+    else
+        valid = false
+    end
     return CheckedVoronoiCell(cell, valid)
 end
 
@@ -421,8 +458,11 @@ function compute_ghost_cell!(
 )
     raw_con = __raw(con)
     xx, yy, zz, rr = Float64.((x, y, z, r))
-
-    valid = __cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz, rr)
+    if isinside((xx, yy, zz), con)
+        valid = Bool(__cxxwrap_compute_ghost_cell!(cell, raw_con, xx, yy, zz, rr))
+    else
+        valid = false
+    end
     return CheckedVoronoiCell(cell, valid)
 end
 
@@ -802,6 +842,11 @@ function neighbors(vc::AbstractVoronoiCell)
     return get_neighbors!(Int32[], vc)
 end
 
+"""
+    append_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
+
+Append the neighbor IDs of the cell `vc` to the array `v`.
+"""
 function append_neighbors!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, v) do cell
         p = __cxxwrap_p(cell)
@@ -971,6 +1016,11 @@ function get_face_perimeters!(v::StdVector{Float64}, vc::AbstractVoronoiCell)
     end
 end
 
+"""
+    face_perimeters(vc::AbstractVoronoiCell)
+
+Return a vector storing face perimeters of cell `vc`.
+"""
 function face_perimeters(vc::AbstractVoronoiCell)
     v = Float64[]
     if_valid(vc, v) do cell
@@ -992,10 +1042,10 @@ Fill `v` with face areas of cell `vc`.
 """
 function get_face_areas!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        p = __cxxwrap_p(vc)
-        nu = UnsafeIndexable(__get_nu(vc))
-        ed = UnsafeIndexable(__get_ed(vc))
-        pts = UnsafeIndexable(__cxxwrap_pts(vc))
+        p = __cxxwrap_p(cell)
+        nu = UnsafeIndexable(__get_nu(cell))
+        ed = UnsafeIndexable(__get_ed(cell))
+        pts = UnsafeIndexable(__cxxwrap_pts(cell))
         for i in one(p)+true:p, j in OneTo(nu[i])
             k = ed[i, j] + true
             if k > zero(k)
@@ -1032,6 +1082,11 @@ function get_face_areas!(v::AbstractVector{<:Number}, vc::AbstractVoronoiCell)
     end
 end
 
+"""
+    face_areas(vc::AbstractVoronoiCell)
+
+Return a vector storing face areas of cell `vc`.
+"""
 function face_areas(vc::AbstractVoronoiCell)
     v = Float64[]
     if_valid(vc, v) do cell
@@ -1039,6 +1094,11 @@ function face_areas(vc::AbstractVoronoiCell)
     end
 end
 
+"""
+    get_face_vertices!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
+
+Fill `v` with indices of vertices for each face of cell `vc`.
+"""
 function get_face_vertices!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
         vp = 1
@@ -1078,9 +1138,16 @@ function get_face_vertices!(v::StdVector{Int32}, vc::AbstractVoronoiCell)
     end
 end
 
+function face_vertices(vc::AbstractVoronoiCell)
+    v = Int32[]
+    if_valid(vc, v) do cell
+        get_face_vertices!(v, cell)
+    end
+end
+
 function get_face_orders!(v::AbstractVector{<:Integer}, vc::AbstractVoronoiCell)
     if_valid(vc, empty!(v)) do cell
-        p = __cxxwrap_p(vc)
+        p = __cxxwrap_p(cell)
         nu = UnsafeIndexable(__get_nu(cell))
         ed = UnsafeIndexable(__get_ed(cell))
         for i in one(p)+true:p, j in OneTo(nu[i])
