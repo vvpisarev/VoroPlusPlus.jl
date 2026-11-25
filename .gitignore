@@ -43,3 +43,7 @@ test/image_data/*.gnu
 test/image_data/*.png
 
 .vscode
+
+# Assistant scratch files (session plans and known-issue notes)
+.agents/
+.known_issues
